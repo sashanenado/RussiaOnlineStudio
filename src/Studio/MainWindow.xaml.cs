@@ -33,7 +33,9 @@ public partial class MainWindow : Window
         EditCategory.ItemsSource = new[] { "УК", "КоАП", "ПГО", "ФЗ о ФСО", "О территориях" };
         CategoryBox.SelectedIndex = 0;
         EditCategory.SelectedIndex = 0;
-        ProfileBox.SelectedIndex = 0;
+        var activeProfileFile = Path.Combine(_dataDir, "active_profile.txt");
+        var activeProfile = File.Exists(activeProfileFile) ? File.ReadAllText(activeProfileFile).Trim() : "main";
+        ProfileBox.SelectedIndex = activeProfile switch { "deputy" => 1, "personal" => 2, _ => 0 };
         LoadAll();
     }
 
@@ -288,7 +290,15 @@ public partial class MainWindow : Window
         SaveJson(Path.Combine(ProfileFolder, "settings.json"), obj);
         StatusText.Text = "Настройки сохранены.";
     }
-    private void ProfileBox_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (!_loading && IsLoaded) LoadAll(); }
+    private void ProfileBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_loading && IsLoaded)
+        {
+            var key = ProfileBox.SelectedIndex switch { 1 => "deputy", 2 => "personal", _ => "main" };
+            File.WriteAllText(Path.Combine(_dataDir, "active_profile.txt"), key);
+            LoadAll();
+        }
+    }
     private void OpenData_Click(object sender, RoutedEventArgs e) { try { Process.Start(new ProcessStartInfo("explorer.exe", _dataDir) { UseShellExecute = true }); } catch { } }
     private void GoLaws_Click(object sender, RoutedEventArgs e) => (Content as FrameworkElement)?.Focus();
     private void GoPanels_Click(object sender, RoutedEventArgs e) => StatusText.Text = "Открой вкладку «Конструктор панелей».";
