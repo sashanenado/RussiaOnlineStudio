@@ -3,7 +3,26 @@
 <Border Grid.Row="0" Background="#19212A" BorderBrush="#303B48" BorderThickness="1" CornerRadius="12" Padding="16" Margin="0,0,0,12">
  <DockPanel><StackPanel DockPanel.Dock="Left"><TextBlock Text="RUSSIA ONLINE  /  STUDIO" FontSize="19" FontWeight="Bold" Foreground="#C9A66B"/><TextBlock Text="Рабочая мастерская семьи • локальные данные" Foreground="#9AA7B5" FontSize="12"/></StackPanel><StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="Профиль" VerticalAlignment="Center" Margin="8"/><ComboBox x:Name="ProfileBox" Width="180" SelectionChanged="ProfileBox_SelectionChanged"><ComboBoxItem Content="Основной"/><ComboBoxItem Content="Заместитель"/><ComboBoxItem Content="Личный"/></ComboBox><Button Content="Открыть папку данных" Click="OpenData_Click"/></StackPanel></DockPanel>
 </Border>
-<TabControl Grid.Row="1" Background="#151B22" BorderBrush="#303B48">
+<TabControl x:Name="MainTabs" Grid.Row="1" Background="#151B22" BorderBrush="#303B48">
+<TabControl.Resources>
+  <Style TargetType="{x:Type TabItem}">
+    <Setter Property="Foreground" Value="#DCE3EA"/>
+    <Setter Property="Background" Value="#19212A"/>
+    <Setter Property="BorderBrush" Value="#303B48"/>
+    <Setter Property="Padding" Value="16,10"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Style.Triggers>
+      <Trigger Property="IsSelected" Value="True">
+        <Setter Property="Foreground" Value="#F4D9A5"/>
+        <Setter Property="Background" Value="#29251F"/>
+        <Setter Property="BorderBrush" Value="#C9A66B"/>
+      </Trigger>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Background" Value="#25303B"/>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+</TabControl.Resources>
 <TabItem Header="Обзор"><ScrollViewer><StackPanel Margin="20"><TextBlock Text="Добро пожаловать в Studio" FontSize="28" FontWeight="SemiBold" Margin="0,8,0,4"/><TextBlock Text="Редактируй статьи, собирай памятки и публикуй их в общую папку Data." Foreground="#9AA7B5" Margin="0,0,0,20"/><UniformGrid Columns="3"><Border Background="#19212A" CornerRadius="10" Padding="18" Margin="5"><StackPanel><TextBlock Text="СТАТЬИ" Foreground="#9AA7B5"/><TextBlock x:Name="StatLaws" Text="0" FontSize="32" Foreground="#C9A66B" FontWeight="Bold"/></StackPanel></Border><Border Background="#19212A" CornerRadius="10" Padding="18" Margin="5"><StackPanel><TextBlock Text="ПАНЕЛИ" Foreground="#9AA7B5"/><TextBlock x:Name="StatPanels" Text="0" FontSize="32" Foreground="#C9A66B" FontWeight="Bold"/></StackPanel></Border><Border Background="#19212A" CornerRadius="10" Padding="18" Margin="5"><StackPanel><TextBlock Text="ПРОФИЛЬ" Foreground="#9AA7B5"/><TextBlock x:Name="StatProfile" Text="Основной" FontSize="22" Foreground="#C9A66B" FontWeight="Bold"/></StackPanel></Border></UniformGrid><Border Background="#24251F" BorderBrush="#685A3C" BorderThickness="1" CornerRadius="9" Padding="14" Margin="5,18"><TextBlock TextWrapping="Wrap" Text="Studio сохраняет изменения в Data. Overlay читает panels.json из той же папки. Для передачи всей семьи скопируй папку RussiaOnline вместе с двумя EXE и Data. Сначала сделай резервную копию старых JSON." Foreground="#E7D7B8"/></Border><StackPanel Orientation="Horizontal"><Button Content="Перейти к законам" Click="GoLaws_Click"/><Button Content="Конструктор панелей" Click="GoPanels_Click"/><Button Content="Сохранить всё" Background="#C9A66B" Foreground="#141414" Click="SaveAll_Click"/></StackPanel></StackPanel></ScrollViewer></TabItem>
 <TabItem Header="Библиотека законов"><Grid Margin="12"><Grid.ColumnDefinitions><ColumnDefinition Width="310"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid>
 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
