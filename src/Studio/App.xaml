@@ -1,0 +1,13 @@
+<Application x:Class="RussiaOnlineStudio.App" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" StartupUri="MainWindow.xaml">
+  <Application.Resources>
+    <SolidColorBrush x:Key="Bg" Color="#101419"/>
+    <SolidColorBrush x:Key="Panel" Color="#19212A"/>
+    <SolidColorBrush x:Key="Line" Color="#303B48"/>
+    <SolidColorBrush x:Key="Gold" Color="#C9A66B"/>
+    <SolidColorBrush x:Key="Text" Color="#ECF0F4"/>
+    <Style TargetType="Button"><Setter Property="Padding" Value="12,8"/><Setter Property="Margin" Value="3"/><Setter Property="Foreground" Value="{StaticResource Text}"/><Setter Property="Background" Value="#293440"/><Setter Property="BorderBrush" Value="{StaticResource Line}"/></Style>
+    <Style TargetType="TextBox"><Setter Property="Padding" Value="9"/><Setter Property="Margin" Value="3"/><Setter Property="Foreground" Value="{StaticResource Text}"/><Setter Property="Background" Value="#10161D"/><Setter Property="BorderBrush" Value="{StaticResource Line}"/></Style>
+    <Style TargetType="ComboBox"><Setter Property="Padding" Value="7"/><Setter Property="Margin" Value="3"/></Style>
+    <Style TargetType="TabItem"><Setter Property="Padding" Value="15,9"/><Setter Property="Foreground" Value="#E9EDF2"/></Style>
+  </Application.Resources>
+</Application>

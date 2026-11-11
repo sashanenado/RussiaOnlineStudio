@@ -1,0 +1,14 @@
+[
+  {
+    "Id": "quick-start",
+    "Title": "Порядок действий",
+    "Text": "Это пример панели. Замени текст на свои инструкции в Studio.",
+    "Width": 360,
+    "Scale": 1.0,
+    "X": 80,
+    "Y": 100,
+    "Opacity": 0.94,
+    "Visible": true,
+    "Topmost": true
+  }
+]
