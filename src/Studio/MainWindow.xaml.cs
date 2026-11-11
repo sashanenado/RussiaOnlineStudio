@@ -156,8 +156,6 @@ public partial class MainWindow : Window
 
     private void SaveLaws()
     {
-        _bases["__saved__"] = _bases["__saved__"] ?? new JsonArray(); // no-op marker preserved in JSON model
-        _bases.Remove("__saved__");
         SaveJson(LawsPath, _lawRoot);
         StatusText.Text = "База законов сохранена с резервной копией • " + DateTime.Now.ToString("HH:mm:ss");
         UpdateStats();
@@ -300,8 +298,8 @@ public partial class MainWindow : Window
         }
     }
     private void OpenData_Click(object sender, RoutedEventArgs e) { try { Process.Start(new ProcessStartInfo("explorer.exe", _dataDir) { UseShellExecute = true }); } catch { } }
-    private void GoLaws_Click(object sender, RoutedEventArgs e) => (Content as FrameworkElement)?.Focus();
-    private void GoPanels_Click(object sender, RoutedEventArgs e) => StatusText.Text = "Открой вкладку «Конструктор панелей».";
+    private void GoLaws_Click(object sender, RoutedEventArgs e) => MainTabs.SelectedIndex = 1;
+    private void GoPanels_Click(object sender, RoutedEventArgs e) => MainTabs.SelectedIndex = 2;
 }
 
 public sealed class LawRow
