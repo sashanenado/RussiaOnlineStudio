@@ -2,10 +2,10 @@
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
  xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
- Title="Russia Online Studio" Width="1440" Height="920" MinWidth="1120" MinHeight="720"
+ Title="Russia Online Studio" Width="1120" Height="730" MinWidth="900" MinHeight="580"
  WindowStartupLocation="CenterScreen" Background="#0D1117" Foreground="#E8EDF3"
  Opacity="0" Loaded="Window_Loaded" PreviewKeyDown="Window_PreviewKeyDown">
- <Grid Margin="16">
+ <Grid x:Name="RootLayout" Margin="16">
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
   <Border Grid.Row="0" Background="#151C25" BorderBrush="#2A3542" BorderThickness="1" CornerRadius="14" Padding="15" Margin="0,0,0,12">
    <DockPanel LastChildFill="True">
@@ -208,7 +208,7 @@
      <StackPanel Margin="22" MaxWidth="760" HorizontalAlignment="Left">
       <TextBlock Text="Настройки и данные" FontSize="22" FontWeight="SemiBold" Foreground="#E9D0A5" Margin="0,0,0,16"/>
       <TextBlock Text="Масштаб интерфейса (%)" Foreground="#9AA8B7"/><TextBox x:Name="UiScale" Text="125"/>
-      <TextBlock Text="Масштаб игрового шрифта (legacy 0.6)" Foreground="#9AA8B7"/><TextBox x:Name="GameScale" Text="0.6"/>
+      <TextBlock Text="Масштаб текста Overlay (0.6 — старый стандарт)" Foreground="#9AA8B7"/><TextBox x:Name="GameScale" Text="0.6"/>
       <TextBlock Text="Горячие клавиши Overlay" Foreground="#9AA8B7" Margin="0,15,0,3"/>
       <TextBlock Text="F8 — выход · F9 — показать/скрыть все окна · F10 — панель управления · F11 — режим перемещения" TextWrapping="Wrap"/>
       <TextBlock Text="Папка данных" Foreground="#9AA8B7" Margin="0,18,0,3"/><TextBlock x:Name="DataPath" TextWrapping="Wrap"/>
