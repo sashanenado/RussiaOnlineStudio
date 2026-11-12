@@ -160,7 +160,12 @@ public partial class MainWindow : Window
 public sealed class PanelDefinition
 {
     public string Id{get;set;}="";public string Title{get;set;}="";public string Text{get;set;}="";
-    public double Width{get;set;}=360,Height{get;set;}=260,Scale{get;set;}=1,X{get;set;}=80,Y{get;set;}=100,Opacity{get;set;}=.94;
+    public double Width{get;set;}=360;
+    public double Height{get;set;}=260;
+    public double Scale{get;set;}=1;
+    public double X{get;set;}=80;
+    public double Y{get;set;}=100;
+    public double Opacity{get;set;}=.94;
     public bool Topmost{get;set;}=true;
     public static PanelDefinition Read(JsonObject o)=>new(){Id=o["Id"]?.ToString()??"",Title=o["Title"]?.ToString()??"Памятка",Text=o["Text"]?.ToString()??o["Body"]?.ToString()??"",Width=N(o,"Width",360),Height=N(o,"Height",260),Scale=N(o,"Scale",1),X=N(o,"X",80),Y=N(o,"Y",100),Opacity=N(o,"Opacity",.94),Topmost=o["Topmost"]?.GetValue<bool>()??true};
     private static double N(JsonObject o,string k,double d)=>double.TryParse(o[k]?.ToString(),System.Globalization.NumberStyles.Any,System.Globalization.CultureInfo.InvariantCulture,out var v)?v:d;
