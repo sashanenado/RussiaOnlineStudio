@@ -72,8 +72,12 @@
          <TextBlock Text="Редактор статьи" FontSize="21" FontWeight="SemiBold" Foreground="#E9D0A5"/>
          <TextBlock x:Name="EditorHint" Text="Выбери статью или создай новую" Foreground="#8F9CAB" FontSize="12"/>
         </StackPanel>
-        <CheckBox x:Name="EditFavorite" Content="★ Избранное" Foreground="#DCC18E" VerticalAlignment="Center" HorizontalAlignment="Right"
-         Checked="LawEditor_OptionChanged" Unchecked="LawEditor_OptionChanged"/>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+         <CheckBox x:Name="EditInMemo" Content="В памятку" Foreground="#9FD2B2" VerticalAlignment="Center"
+          Checked="LawEditor_OptionChanged" Unchecked="LawEditor_OptionChanged"/>
+         <CheckBox x:Name="EditFavorite" Content="★ Избранное" Foreground="#DCC18E" VerticalAlignment="Center"
+          Checked="LawEditor_OptionChanged" Unchecked="LawEditor_OptionChanged"/>
+        </StackPanel>
        </DockPanel>
 
        <Grid Grid.Row="1" Margin="0,0,0,6">
