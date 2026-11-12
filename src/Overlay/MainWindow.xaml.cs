@@ -1,5 +1,6 @@
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Interop;
@@ -58,7 +59,9 @@ public partial class MainWindow : Window
                 case 4:
                     _moveMode = !_moveMode;
                     foreach (var w in _windows) w.MoveMode = _moveMode;
-                    Status.Text = _moveMode ? "Режим перемещения включён (F11)" : "Режим перемещения выключен";
+                    Status.Text = _moveMode
+                        ? "Режим свободного перемещения включён. Также можно перетаскивать окна за заголовок."
+                        : "Режим свободного перемещения выключен. Перетаскивание за заголовок доступно всегда.";
                     break;
             }
             handled = true;
@@ -77,26 +80,95 @@ public partial class MainWindow : Window
                 var value = File.ReadAllText(profilePath).Trim();
                 if (value is "main" or "deputy" or "personal") profile = value;
             }
-            var path = Path.Combine(_dataDir, "Profiles", profile, "panels.json");
+
+            var profileFolder = Path.Combine(_dataDir, "Profiles", profile);
+            var path = Path.Combine(profileFolder, "panels.json");
             if (!File.Exists(path)) path = Path.Combine(_dataDir, "panels.json");
-            if (!File.Exists(path))
+
+            if (File.Exists(path))
             {
-                Status.Text = "Data/panels.json не найден. Создай панели в Studio и сохрани их.";
-                return;
+                var arr = JsonNode.Parse(File.ReadAllText(path)) as JsonArray;
+                if (arr is null) throw new InvalidDataException("Неверный формат panels.json");
+                foreach (var n in arr)
+                {
+                    if (n is not JsonObject o || o["Visible"]?.GetValue<bool>() == false) continue;
+                    var p = PanelDefinition.Read(o);
+                    var w = new PanelWindow(p, path);
+                    _windows.Add(w);
+                    w.Show();
+                }
             }
-            var arr = JsonNode.Parse(File.ReadAllText(path)) as JsonArray;
-            if (arr is null) { Status.Text = "Ошибка формата panels.json"; return; }
-            foreach (var n in arr)
-            {
-                if (n is not JsonObject o || o["Visible"]?.GetValue<bool>() == false) continue;
-                var p = PanelDefinition.Read(o);
-                var w = new PanelWindow(p);
-                _windows.Add(w);
-                w.Show();
-            }
-            Status.Text = $"Загружено независимых окон: {_windows.Count}. F8 — выход, F9 — показать/скрыть, F10 — панель, F11 — двигать окна.";
+
+            LoadLawMemo(profile, profileFolder);
+            Status.Text = $"Загружено окон: {_windows.Count}. Перетаскивай за заголовок; F11 включает перемещение из любой области. F8 — выход, F9 — все окна, F10 — панель управления.";
         }
         catch (Exception ex) { Status.Text = "Ошибка загрузки: " + ex.Message; }
+    }
+
+    private void LoadLawMemo(string profile, string profileFolder)
+    {
+        var lawsPath = Path.Combine(profileFolder, "laws_database.json");
+        if (!File.Exists(lawsPath)) lawsPath = Path.Combine(_dataDir, "laws_database.json");
+        if (!File.Exists(lawsPath))
+        {
+            Status.Text = "Файл базы законов не найден. Добавь законы в Studio и сохрани их.";
+            return;
+        }
+
+        var root = JsonNode.Parse(File.ReadAllText(lawsPath)) as JsonObject;
+        var bases = root?["Bases"] as JsonObject;
+        if (bases is null) return;
+
+        var text = new StringBuilder();
+        int count = 0;
+        foreach (var category in bases)
+        {
+            if (category.Value is not JsonArray articles || articles.Count == 0) continue;
+            var categoryItems = new StringBuilder();
+            foreach (var node in articles)
+            {
+                if (node is not JsonObject article) continue;
+                var number = article["Number"]?.ToString() ?? "";
+                var title = article["Title"]?.ToString() ?? "";
+                var body = article["Text"]?.ToString() ?? "";
+                var note = article["Note"]?.ToString() ?? "";
+                if (string.IsNullOrWhiteSpace(number) && string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(body)) continue;
+
+                categoryItems.AppendLine($"{number} — {title}".Trim(' ', '—'));
+                if (!string.IsNullOrWhiteSpace(body)) categoryItems.AppendLine(body.Trim());
+                if (!string.IsNullOrWhiteSpace(note)) categoryItems.AppendLine("Заметка: " + note.Trim());
+                categoryItems.AppendLine();
+                count++;
+            }
+            if (categoryItems.Length > 0)
+            {
+                text.AppendLine("━━ " + category.Key.ToUpperInvariant() + " ━━");
+                text.AppendLine(categoryItems.ToString());
+            }
+        }
+
+        if (count == 0)
+        {
+            Status.Text = "В базе законов пока нет сохранённых статей.";
+            return;
+        }
+
+        var memo = new PanelDefinition
+        {
+            Id = "law-memo-" + profile,
+            Title = $"ПАМЯТКА ЗАКОНОВ · {count} СТАТЬИ",
+            Text = text.ToString(),
+            Width = 560,
+            Height = 680,
+            X = 520,
+            Y = 90,
+            Opacity = .96,
+            Scale = 1,
+            Topmost = true
+        };
+        var memoWindow = new PanelWindow(memo);
+        _windows.Add(memoWindow);
+        memoWindow.Show();
     }
 
     private void ToggleAll()
@@ -123,6 +195,7 @@ public sealed class PanelDefinition
     public string Title { get; set; } = "";
     public string Text { get; set; } = "";
     public double Width { get; set; } = 360;
+    public double Height { get; set; } = 260;
     public double Scale { get; set; } = 1;
     public double X { get; set; } = 80;
     public double Y { get; set; } = 100;
@@ -135,6 +208,7 @@ public sealed class PanelDefinition
         Title = o["Title"]?.ToString() ?? "Памятка",
         Text = o["Text"]?.ToString() ?? o["Body"]?.ToString() ?? "",
         Width = N(o, "Width", 360),
+        Height = N(o, "Height", 260),
         Scale = N(o, "Scale", 1),
         X = N(o, "X", 80),
         Y = N(o, "Y", 100),
