@@ -243,14 +243,39 @@ public partial class MainWindow : Window
                     }
                 }
 
-                // Legacy entries without an ID only match by article number inside the target category.
+                // Legacy base entries may not have an ID. A move can be detected by a unique
+                // exact pair of article number and title across all categories.
                 if (existingArticle is null && number.Length > 0)
                 {
-                    for (var i = 0; i < targetArray.Count; i++)
+                    var title = sourceArticle["Title"]?.ToString()?.Trim() ?? "";
+                    var matches = new List<(JsonArray Array, int Index, JsonObject Article)>();
+                    foreach (var otherCategory in targetBases)
                     {
-                        if (targetArray[i] is JsonObject current &&
-                            string.Equals(current["Number"]?.ToString()?.Trim(), number, StringComparison.OrdinalIgnoreCase))
-                        { existingArticle = current; break; }
+                        if (otherCategory.Value is not JsonArray otherArray) continue;
+                        for (var i = 0; i < otherArray.Count; i++)
+                        {
+                            if (otherArray[i] is JsonObject current &&
+                                string.Equals(current["Number"]?.ToString()?.Trim(), number, StringComparison.OrdinalIgnoreCase) &&
+                                (title.Length == 0 || string.Equals(current["Title"]?.ToString()?.Trim(), title, StringComparison.Ordinal)))
+                                matches.Add((otherArray, i, current));
+                        }
+                    }
+
+                    if (matches.Count == 1)
+                    {
+                        var match = matches[0];
+                        existingArticle = match.Article;
+                        if (!ReferenceEquals(match.Array, targetArray))
+                            match.Array.RemoveAt(match.Index);
+                    }
+                    else if (matches.Count == 0)
+                    {
+                        for (var i = 0; i < targetArray.Count; i++)
+                        {
+                            if (targetArray[i] is JsonObject current &&
+                                string.Equals(current["Number"]?.ToString()?.Trim(), number, StringComparison.OrdinalIgnoreCase))
+                            { existingArticle = current; break; }
+                        }
                     }
                 }
 
