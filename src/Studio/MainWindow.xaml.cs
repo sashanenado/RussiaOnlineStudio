@@ -792,15 +792,16 @@ public partial class MainWindow : Window
                     ? "Форум загружен. Ctrl+F — поиск по странице."
                     : $"Ошибка загрузки страницы: {args.WebErrorStatus}");
             };
-            ForumBrowser.CoreWebView2Controller.AcceleratorKeyPressed += (_, args) =>
+            await ForumBrowser.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
+                "document.addEventListener('keydown',function(e){if(e.ctrlKey&&(e.key==='f'||e.key==='F')){e.preventDefault();e.stopImmediatePropagation();window.chrome.webview.postMessage('host-find');}},true);");
+            ForumBrowser.CoreWebView2.WebMessageReceived += (_, args) =>
             {
-                if (args.KeyEventKind == CoreWebView2KeyEventKind.KeyDown &&
-                    args.VirtualKey == 0x46 &&
-                    (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+                try
                 {
-                    args.Handled = true;
-                    Dispatcher.BeginInvoke(new Action(ShowFindBar));
+                    if (args.TryGetWebMessageAsString() == "host-find")
+                        Dispatcher.BeginInvoke(new Action(ShowFindBar));
                 }
+                catch { }
             };
 
             _forumInitialized = true;
