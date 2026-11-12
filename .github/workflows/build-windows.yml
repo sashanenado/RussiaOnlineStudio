@@ -71,12 +71,12 @@ jobs:
           RUSSIA ONLINE STUDIO + OVERLAY
 
           1. Запусти Studio.exe. Библиотека законов открывается сразу.
-          2. Войди на форум во вкладке «Форум / браузер». WebView2 хранит вход в Data/ForumBrowserProfile.
+          2. Войди на форум во вкладке «Форум / браузер». WebView2 хранит вход в профиле текущего пользователя Windows (LocalAppData).
           3. Статьи редактируются в Studio; изменения автоматически появляются в окне «Памятка законов» Overlay.
           4. Для отдельных памяток используй «Конструктор панелей».
           5. Запусти Overlay.exe. Горячие клавиши: F8 — выход, F9 — показать/скрыть все окна, F10 — панель управления, F11 — свободное перемещение.
           6. Резервируй Data целиком. При обновлении программы переноси Data/Profiles и Data/overlay_positions.json.
-          7. Не передавай участникам семьи папку Data/ForumBrowserProfile: в ней хранится личная сессия форума.
+          7. Папка сессии форума находится в LocalAppData текущего пользователя Windows и не входит в переносимую Data.
           8. Для встроенного браузера требуется Microsoft Edge WebView2 Runtime.
           "@ | Set-Content -Encoding UTF8 dist/RussiaOnline/НАЧНИ_ОТСЮДА.txt
           Compress-Archive -Path dist/RussiaOnline/* -DestinationPath dist/RussiaOnline_Studio_Overlay_win-x64.zip -Force
