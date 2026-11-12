@@ -1,68 +1,233 @@
 using System.IO;
+using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Threading;
+using System.Windows.Media.Animation;
 
 namespace RussiaOnlineOverlay;
 
 public sealed class PanelWindow : Window
 {
+    private static readonly object PositionLock = new();
     private readonly PanelDefinition _panel;
-    private readonly string? _sourcePath;
-    private readonly DispatcherTimer _saveTimer;
+    private readonly string? _positionsPath;
     private readonly TextBlock _heading;
-    private readonly TextBlock _body;
+    private readonly RichTextBox _body;
     private bool _isClosing, _skipSave;
+
     public bool MoveMode { get; set; }
     public string PanelId => _panel.Id;
     public bool IsLawMemo { get; }
 
-    public PanelWindow(PanelDefinition panel, string? sourcePath = null, bool isLawMemo = false)
+    public PanelWindow(PanelDefinition panel, string? positionsPath = null, bool isLawMemo = false)
     {
-        _panel=panel; _sourcePath=sourcePath; IsLawMemo=isLawMemo;
-        Title=panel.Title; Width=Math.Clamp(panel.Width,220,1200); Height=Math.Clamp(panel.Height,160,1200);
-        Left=panel.X; Top=panel.Y; WindowStyle=WindowStyle.None; ResizeMode=ResizeMode.CanResizeWithGrip;
-        AllowsTransparency=true; Background=new SolidColorBrush(Color.FromArgb((byte)(Math.Clamp(panel.Opacity,.2,1)*255),18,23,30));
-        Topmost=panel.Topmost; ShowInTaskbar=false;
-        var root=new Border{BorderBrush=new SolidColorBrush(Color.FromArgb(210,201,166,107)),BorderThickness=new Thickness(1),CornerRadius=new CornerRadius(10),Padding=new Thickness(12),Background=Background};
-        var layout=new DockPanel();
-        _heading=new TextBlock{Text=panel.Title,FontWeight=FontWeights.Bold,FontSize=15*panel.Scale,Foreground=new SolidColorBrush(Color.FromRgb(235,204,151)),TextTrimming=TextTrimming.CharacterEllipsis};
-        var header=new Border{Background=new SolidColorBrush(Color.FromArgb(25,201,166,107)),CornerRadius=new CornerRadius(5),Padding=new Thickness(7,4,7,7),Cursor=Cursors.SizeAll,Child=_heading};
-        DockPanel.SetDock(header,Dock.Top); layout.Children.Add(header);
-        header.MouseLeftButtonDown+=(_,e)=>{if(e.ButtonState==MouseButtonState.Pressed){try{DragMove();}catch{} e.Handled=true;}};
-        _body=new TextBlock{Text=panel.Text,TextWrapping=TextWrapping.Wrap,FontSize=14*panel.Scale,Foreground=Brushes.White};
-        layout.Children.Add(new ScrollViewer{Content=_body,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled});
-        root.Child=layout; Content=root;
-        _saveTimer=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(500)};
-        _saveTimer.Tick+=(_,_)=>{_saveTimer.Stop();SavePosition();};
-        LocationChanged+=(_,_)=>ScheduleSave(); SizeChanged+=(_,_)=>ScheduleSave();
-        Closing+=(_,_)=>{_isClosing=true;_saveTimer.Stop();if(!_skipSave)SavePosition();};
-        PreviewMouseLeftButtonDown+=(_,e)=>{if(!MoveMode||e.OriginalSource is not DependencyObject d)return;if(FindAncestor<ScrollViewer>(d)is null&&FindAncestor<TextBox>(d)is null){try{DragMove();}catch{}e.Handled=true;}};
+        _panel = panel;
+        _positionsPath = positionsPath;
+        IsLawMemo = isLawMemo;
+
+        Title = panel.Title;
+        Width = Math.Clamp(panel.Width, 220, 1200);
+        Height = Math.Clamp(panel.Height, 160, 1200);
+        Left = panel.X;
+        Top = panel.Y;
+        WindowStyle = WindowStyle.None;
+        ResizeMode = WindowResizeMode(panel);
+        AllowsTransparency = true;
+        Background = MakeBackground(panel.Opacity);
+        Topmost = panel.Topmost;
+        ShowInTaskbar = false;
+        Opacity = 0;
+
+        var root = new Border
+        {
+            BorderBrush = new SolidColorBrush(Color.FromArgb(220, 201, 166, 107)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(11),
+            Padding = new Thickness(12),
+            Background = Background
+        };
+        var layout = new DockPanel();
+
+        _heading = new TextBlock
+        {
+            Text = panel.Title,
+            FontWeight = FontWeights.Bold,
+            FontSize = 15 * panel.Scale,
+            Foreground = new SolidColorBrush(Color.FromRgb(238, 207, 157)),
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        var header = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(32, 201, 166, 107)),
+            CornerRadius = new CornerRadius(7),
+            Padding = new Thickness(8, 6, 8, 8),
+            Cursor = Cursors.SizeAll,
+            Child = _heading
+        };
+        DockPanel.SetDock(header, Dock.Top);
+        layout.Children.Add(header);
+        header.MouseLeftButtonDown += (_, e) =>
+        {
+            if (e.ButtonState == MouseButtonState.Pressed)
+            {
+                try { DragMove(); } catch { }
+                e.Handled = true;
+            }
+        };
+
+        _body = new RichTextBox
+        {
+            IsReadOnly = true,
+            BorderThickness = new Thickness(0),
+            Background = Brushes.Transparent,
+            Foreground = Brushes.White,
+            FontFamily = new FontFamily("Segoe UI"),
+            FontSize = 14 * panel.Scale,
+            Padding = new Thickness(2),
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            IsDocumentEnabled = false
+        };
+        _body.Document.PagePadding = new Thickness(0);
+        _body.Document.Background = Brushes.Transparent;
+        _body.Document.Foreground = Brushes.White;
+        LoadBody(panel);
+        layout.Children.Add(_body);
+
+        root.Child = layout;
+        Content = root;
+
+        LocationChanged += (_, _) => SchedulePositionSave();
+        SizeChanged += (_, _) => SchedulePositionSave();
+        Loaded += (_, _) =>
+        {
+            BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+            });
+        };
+        Closing += (_, _) =>
+        {
+            _isClosing = true;
+            if (!_skipSave) SavePosition();
+        };
+
+        PreviewMouseLeftButtonDown += (_, e) =>
+        {
+            if (!MoveMode || e.OriginalSource is not DependencyObject source) return;
+            if (FindAncestor<ScrollViewer>(source) is null)
+            {
+                try { DragMove(); } catch { }
+                e.Handled = true;
+            }
+        };
     }
 
-    public void UpdateFromDefinition(PanelDefinition p)
+    private static ResizeMode WindowResizeMode(PanelDefinition panel) => ResizeMode.CanResizeWithGrip;
+
+    private static Brush MakeBackground(double opacity) =>
+        new SolidColorBrush(Color.FromArgb((byte)(Math.Clamp(opacity, .2, 1) * 255), 18, 23, 30));
+
+    private void LoadBody(PanelDefinition panel)
     {
-        _panel.Title=p.Title;_panel.Text=p.Text;_panel.Width=p.Width;_panel.Height=p.Height;_panel.Scale=p.Scale;_panel.Opacity=p.Opacity;_panel.Topmost=p.Topmost;
-        Title=p.Title;_heading.Text=p.Title;_heading.FontSize=15*p.Scale;_body.Text=p.Text;_body.FontSize=14*p.Scale;
-        Width=Math.Clamp(p.Width,220,1200);Height=Math.Clamp(p.Height,160,1200);Topmost=p.Topmost;
-        Background=new SolidColorBrush(Color.FromArgb((byte)(Math.Clamp(p.Opacity,.2,1)*255),18,23,30));
+        _body.Document.Blocks.Clear();
+        var range = new TextRange(_body.Document.ContentStart, _body.Document.ContentEnd);
+        if (!string.IsNullOrWhiteSpace(panel.RichTextRtf))
+        {
+            try
+            {
+                using var ms = new MemoryStream(Encoding.UTF8.GetBytes(panel.RichTextRtf));
+                range.Load(ms, DataFormats.Rtf);
+                return;
+            }
+            catch { _body.Document.Blocks.Clear(); }
+        }
+
+        var text = panel.Text ?? "";
+        foreach (var line in text.Replace("\r", "").Split('\n'))
+            _body.Document.Blocks.Add(new Paragraph(new Run(line)) { Margin = new Thickness(0, 0, 0, 5) });
     }
-    public void CloseWithoutSaving(){_skipSave=true;Close();}
-    private void ScheduleSave(){if(_isClosing||_skipSave||string.IsNullOrWhiteSpace(_sourcePath))return;_saveTimer.Stop();_saveTimer.Start();}
+
+    public void UpdateFromDefinition(PanelDefinition panel)
+    {
+        _panel.Title = panel.Title;
+        _panel.Text = panel.Text;
+        _panel.RichTextRtf = panel.RichTextRtf;
+        _panel.Width = panel.Width;
+        _panel.Height = panel.Height;
+        _panel.Scale = panel.Scale;
+        _panel.Opacity = panel.Opacity;
+        _panel.Topmost = panel.Topmost;
+
+        Title = panel.Title;
+        _heading.Text = panel.Title;
+        _heading.FontSize = 15 * panel.Scale;
+        _body.FontSize = 14 * panel.Scale;
+        Width = Math.Clamp(panel.Width, 220, 1200);
+        Height = Math.Clamp(panel.Height, 160, 1200);
+        Topmost = panel.Topmost;
+        Background = MakeBackground(panel.Opacity);
+        if (Content is Border border) border.Background = Background;
+        LoadBody(panel);
+    }
+
+    public void CloseWithoutSaving()
+    {
+        _skipSave = true;
+        Close();
+    }
+
+    private void SchedulePositionSave()
+    {
+        if (_isClosing || _skipSave || string.IsNullOrWhiteSpace(_positionsPath)) return;
+        SavePosition();
+    }
+
     private void SavePosition()
     {
-        if(_skipSave||string.IsNullOrWhiteSpace(_sourcePath)||!File.Exists(_sourcePath))return;
-        try
+        if (_skipSave || string.IsNullOrWhiteSpace(_positionsPath)) return;
+        lock (PositionLock)
         {
-            _panel.X=Left;_panel.Y=Top;_panel.Width=Width;_panel.Height=Height;
-            var root=JsonNode.Parse(File.ReadAllText(_sourcePath)) as JsonArray;if(root is null)return;
-            foreach(var n in root)if(n is JsonObject o&&string.Equals(o["Id"]?.ToString(),_panel.Id,StringComparison.OrdinalIgnoreCase))
-            {o["X"]=_panel.X;o["Y"]=_panel.Y;o["Width"]=_panel.Width;o["Height"]=_panel.Height;o["Opacity"]=_panel.Opacity;break;}
-            var tmp=_sourcePath+".overlay.tmp";File.WriteAllText(tmp,root.ToJsonString(new System.Text.Json.JsonSerializerOptions{WriteIndented=true}));File.Move(tmp,_sourcePath,true);
-        }catch{}
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(_positionsPath)!);
+                JsonObject positions = new();
+                if (File.Exists(_positionsPath))
+                    positions = JsonNode.Parse(File.ReadAllText(_positionsPath)) as JsonObject ?? new JsonObject();
+
+                positions[_panel.Id] = new JsonObject
+                {
+                    ["X"] = Left,
+                    ["Y"] = Top,
+                    ["Width"] = Width,
+                    ["Height"] = Height
+                };
+
+                var temp = _positionsPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                File.WriteAllText(temp, positions.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+                File.Move(temp, _positionsPath, true);
+
+                _panel.X = Left;
+                _panel.Y = Top;
+                _panel.Width = Width;
+                _panel.Height = Height;
+            }
+            catch { }
+        }
     }
-    private static T? FindAncestor<T>(DependencyObject? d) where T:DependencyObject{while(d is not null){if(d is T t)return t;d=VisualTreeHelper.GetParent(d);}return null;}
+
+    private static T? FindAncestor<T>(DependencyObject? current) where T : DependencyObject
+    {
+        while (current is not null)
+        {
+            if (current is T found) return found;
+            current = VisualTreeHelper.GetParent(current);
+        }
+        return null;
+    }
 }
