@@ -244,7 +244,7 @@ public partial class MainWindow : Window
                 var panel = PanelDefinition.Read(obj);
                 ApplySavedPosition(panel);
                 var window = new PanelWindow(panel, _positionsPath) { MoveMode = _moveMode };
-                _windows.Add(window);
+                TrackWindow(window);
                 window.Show();
             }
         }
@@ -290,7 +290,7 @@ public partial class MainWindow : Window
                 {
                     ApplySavedPosition(definition);
                     var window = new PanelWindow(definition, _positionsPath) { MoveMode = _moveMode };
-                    _windows.Add(window);
+                    TrackWindow(window);
                     window.Show();
                 }
                 else
