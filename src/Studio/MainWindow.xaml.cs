@@ -26,6 +26,7 @@ public partial class MainWindow : Window
     private LawRow? _selectedLaw;
     private PanelRow? _selectedPanel;
     private bool _loading;
+    private string _loadedProfileKey = "main";
     private bool _forumInitialized;
     private Task? _forumInitTask;
     private readonly DispatcherTimer _lawSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(700) };
@@ -69,7 +70,8 @@ public partial class MainWindow : Window
         LawList.ItemsSource = _laws;
         PanelList.ItemsSource = _panels;
         _loading = true;
-        ProfileBox.SelectedIndex = ReadActiveProfileKey() switch
+        _loadedProfileKey = ReadActiveProfileKey();
+        ProfileBox.SelectedIndex = _loadedProfileKey switch
         {
             "deputy" => 1,
             "personal" => 2,
@@ -103,7 +105,7 @@ public partial class MainWindow : Window
         2 => "personal",
         _ => "main"
     };
-    private string ProfileFolder => Path.Combine(_dataDir, "Profiles", ActiveProfileKey);
+    private string ProfileFolder => Path.Combine(_dataDir, "Profiles", _loadedProfileKey);
     private string LawsPath => Path.Combine(ProfileFolder, "laws_database.json");
     private string PanelsPath => Path.Combine(ProfileFolder, "panels.json");
 
@@ -195,24 +197,27 @@ public partial class MainWindow : Window
             foreach (var sourceNode in sourceArray)
             {
                 if (sourceNode is not JsonObject sourceArticle) continue;
+                var id = sourceArticle["Id"]?.ToString()?.Trim() ?? "";
                 var number = sourceArticle["Number"]?.ToString()?.Trim() ?? "";
-                var title = sourceArticle["Title"]?.ToString()?.Trim() ?? "";
                 var index = -1;
-                if (!string.IsNullOrWhiteSpace(number))
+
+                if (!string.IsNullOrWhiteSpace(id))
+                {
+                    for (var i = 0; i < targetArray.Count; i++)
+                    {
+                        if (targetArray[i] is JsonObject current &&
+                            string.Equals(current["Id"]?.ToString()?.Trim(), id, StringComparison.OrdinalIgnoreCase))
+                        { index = i; break; }
+                    }
+                }
+
+                // Existing legacy articles do not have Id yet; their stable article number is the fallback.
+                if (index < 0 && !string.IsNullOrWhiteSpace(number))
                 {
                     for (var i = 0; i < targetArray.Count; i++)
                     {
                         if (targetArray[i] is JsonObject current &&
                             string.Equals(current["Number"]?.ToString()?.Trim(), number, StringComparison.OrdinalIgnoreCase))
-                        { index = i; break; }
-                    }
-                }
-                else if (!string.IsNullOrWhiteSpace(title))
-                {
-                    for (var i = 0; i < targetArray.Count; i++)
-                    {
-                        if (targetArray[i] is JsonObject current &&
-                            string.Equals(current["Title"]?.ToString()?.Trim(), title, StringComparison.OrdinalIgnoreCase))
                         { index = i; break; }
                     }
                 }
@@ -259,7 +264,13 @@ public partial class MainWindow : Window
             if (cat.Value is not JsonArray array) continue;
             foreach (var node in array)
                 if (node is JsonObject obj)
+                {
+                    // Give every record a stable identity. This prevents two drafts with the same
+                    // temporary title and no article number from overwriting each other.
+                    if (string.IsNullOrWhiteSpace(obj["Id"]?.ToString()))
+                        obj["Id"] = Guid.NewGuid().ToString("N");
                     _laws.Add(new LawRow(cat.Key, obj));
+                }
         }
 
         var categories = DefaultCategories
@@ -433,6 +444,7 @@ public partial class MainWindow : Window
         _selectedLaw.Tags = EditTags.Text;
         _selectedLaw.Favorite = EditFavorite.IsChecked == true;
 
+        _selectedLaw.Raw["Id"] = _selectedLaw.Id;
         _selectedLaw.Raw["Number"] = _selectedLaw.Number;
         _selectedLaw.Raw["Title"] = _selectedLaw.Title;
         _selectedLaw.Raw["Text"] = _selectedLaw.Text;
@@ -508,7 +520,21 @@ public partial class MainWindow : Window
         if (LawList.SelectedItem is LawRow row) FillLawEditor(row);
     }
     private void LawEditor_TextChanged(object sender, TextChangedEventArgs e) => ScheduleLawSave();
-    private void EditCategory_SelectionChanged(object sender, SelectionChangedEventArgs e) => ScheduleLawSave();
+    private void EditCategory_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading) return;
+        var category = EditCategory.SelectedItem?.ToString();
+        if (!string.IsNullOrWhiteSpace(category) &&
+            CategoryBox.SelectedItem?.ToString() is string currentFilter &&
+            currentFilter != "Все категории")
+        {
+            _loading = true;
+            CategoryBox.SelectedItem = category;
+            _loading = false;
+            RefreshLawFilter();
+        }
+        ScheduleLawSave();
+    }
     private void LawEditor_OptionChanged(object sender, RoutedEventArgs e) => ScheduleLawSave();
 
     private void AddLaw_Click(object sender, RoutedEventArgs e)
@@ -522,6 +548,7 @@ public partial class MainWindow : Window
             chosenCategory = NormalizeCategory(chosenCategory);
             var raw = new JsonObject
             {
+                ["Id"] = Guid.NewGuid().ToString("N"),
                 ["Number"] = "",
                 ["Title"] = "Новая статья",
                 ["Text"] = "",
@@ -722,8 +749,10 @@ public partial class MainWindow : Window
             _panelSaveTimer.Stop();
             if (_selectedLaw is not null) { ApplyLawEditor(); SaveLaws(); }
             if (_selectedPanel is not null) { ApplyPanelEditor(); SavePanels(); }
+            var nextProfile = ActiveProfileKey;
             WriteSignal("active_profile.txt");
-            File.WriteAllText(Path.Combine(_dataDir, "active_profile.txt"), ActiveProfileKey);
+            File.WriteAllText(Path.Combine(_dataDir, "active_profile.txt"), nextProfile);
+            _loadedProfileKey = nextProfile;
             _selectedLaw = null;
             _selectedPanel = null;
             LoadAll();
@@ -911,6 +940,7 @@ public partial class MainWindow : Window
 
 public sealed class LawRow
 {
+    public string Id { get; set; }
     public string Category { get; set; }
     public string OriginalCategory { get; set; }
     public JsonObject Raw { get; }
@@ -929,6 +959,8 @@ public sealed class LawRow
             storageCategory.Equals("КОАП", StringComparison.OrdinalIgnoreCase) ? "КоАП" :
             storageCategory;
         Raw = raw;
+        Id = raw["Id"]?.ToString() ?? Guid.NewGuid().ToString("N");
+        raw["Id"] = Id;
         Number = raw["Number"]?.ToString() ?? "";
         Title = raw["Title"]?.ToString() ?? "";
         Text = raw["Text"]?.ToString() ?? "";
