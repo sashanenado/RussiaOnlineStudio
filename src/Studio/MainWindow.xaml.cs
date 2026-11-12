@@ -386,6 +386,20 @@ public partial class MainWindow : Window
         ReadPanelFile(Path.Combine(_dataDir, "panels.json"), profileOverrides: false);
         ReadPanelFile(PanelsPath, profileOverrides: true);
 
+        // Deletion tombstones stop removed shared defaults from reappearing in this profile.
+        var deletedPath = Path.Combine(ProfileFolder, "deleted_panels.json");
+        if (File.Exists(deletedPath))
+        {
+            try
+            {
+                var deleted = JsonNode.Parse(File.ReadAllText(deletedPath)) as JsonArray;
+                if (deleted is not null)
+                    foreach (var node in deleted)
+                        if (node is not null) merged.Remove(node.ToString());
+            }
+            catch (Exception ex) { LogError(ex, "LoadDeletedPanels"); }
+        }
+
         foreach (var panel in merged.Values)
             _panels.Add(panel);
 
@@ -853,8 +867,16 @@ public partial class MainWindow : Window
         RunSafe(() =>
         {
             _panelSaveTimer.Stop();
+            var deletedId = _selectedPanel.Id;
             _panels.Remove(_selectedPanel);
             _selectedPanel = null;
+            var deletedPath = Path.Combine(ProfileFolder, "deleted_panels.json");
+            var deleted = File.Exists(deletedPath)
+                ? JsonNode.Parse(File.ReadAllText(deletedPath)) as JsonArray ?? new JsonArray()
+                : new JsonArray();
+            if (!deleted.Any(node => string.Equals(node?.ToString(), deletedId, StringComparison.OrdinalIgnoreCase)))
+                deleted.Add(deletedId);
+            SaveJson(deletedPath, deleted, createBackup: false);
             PanelList.SelectedIndex = _panels.Count > 0 ? 0 : -1;
             SavePanels();
         }, "Удаление панели");
