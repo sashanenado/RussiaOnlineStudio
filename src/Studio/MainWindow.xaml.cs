@@ -78,8 +78,6 @@ public partial class MainWindow : Window
         _loading = false;
         LoadAll();
 
-        PreviewKeyDown += Window_PreviewKeyDown;
-        MainTabs.SelectionChanged += MainTabs_SelectionChanged;
         Closing += (_, _) =>
         {
             _lawSaveTimer.Stop();
@@ -369,9 +367,8 @@ public partial class MainWindow : Window
 
     private void UpdateStats()
     {
-        if (StatLaws is not null) StatLaws.Text = _laws.Count.ToString(CultureInfo.InvariantCulture);
-        if (StatPanels is not null) StatPanels.Text = _panels.Count.ToString(CultureInfo.InvariantCulture);
-        if (StatProfile is not null) StatProfile.Text = ProfileBox.SelectedItem is ComboBoxItem c ? c.Content?.ToString() ?? "Основной" : "Основной";
+        // Overview dashboard removed: the library is now the primary workspace.
+        // Keep this method as a no-op for callers from shared save routines.
     }
 
     private void FillLawEditor(LawRow? row)
