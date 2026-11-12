@@ -88,7 +88,8 @@ public partial class MainWindow : Window
             _profileChanged = true;
         else if (name.Equals("laws_database.json", StringComparison.OrdinalIgnoreCase))
             _lawsChanged = true;
-        else if (name.Equals("panels.json", StringComparison.OrdinalIgnoreCase))
+        else if (name.Equals("panels.json", StringComparison.OrdinalIgnoreCase) ||
+                 name.Equals("deleted_panels.json", StringComparison.OrdinalIgnoreCase))
             _panelsChanged = true;
         else
             return;
@@ -155,6 +156,19 @@ public partial class MainWindow : Window
         // Shared legacy defaults are loaded first; a profile can override a panel with the same ID.
         Read(Path.Combine(_dataDir, "panels.json"), profileOverrides: false);
         Read(ProfilePanelsPath, profileOverrides: true);
+
+        var deletedPath = Path.Combine(ProfileFolder, "deleted_panels.json");
+        if (File.Exists(deletedPath))
+        {
+            try
+            {
+                var deleted = JsonNode.Parse(File.ReadAllText(deletedPath)) as JsonArray;
+                if (deleted is not null)
+                    foreach (var node in deleted)
+                        if (node is not null) merged.Remove(node.ToString());
+            }
+            catch { }
+        }
 
         var result = new JsonArray();
         foreach (var panel in merged.Values) result.Add(panel);
