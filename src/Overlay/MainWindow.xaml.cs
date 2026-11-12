@@ -150,6 +150,55 @@ public partial class MainWindow : Window
         return key;
     }
 
+    private static void MergeArticleArray(JsonObject bases, string category, JsonArray sourceArticles)
+    {
+        var targetKey = bases.Select(p => p.Key)
+            .FirstOrDefault(k => NormalizeCategory(k) == NormalizeCategory(category)) ?? category;
+        if (bases[targetKey] is not JsonArray target)
+        {
+            target = new JsonArray();
+            bases[targetKey] = target;
+        }
+
+        foreach (var sourceNode in sourceArticles)
+        {
+            if (sourceNode is not JsonObject article) continue;
+            var id = article["Id"]?.ToString()?.Trim() ?? "";
+            var number = article["Number"]?.ToString()?.Trim() ?? "";
+            var index = -1;
+
+            if (id.Length > 0)
+            {
+                for (var i = 0; i < target.Count; i++)
+                {
+                    if (target[i] is JsonObject existing &&
+                        string.Equals(existing["Id"]?.ToString()?.Trim(), id, StringComparison.OrdinalIgnoreCase))
+                    { index = i; break; }
+                }
+            }
+
+            if (index < 0 && number.Length > 0)
+            {
+                for (var i = 0; i < target.Count; i++)
+                {
+                    if (target[i] is JsonObject existing &&
+                        string.Equals(existing["Number"]?.ToString()?.Trim(), number, StringComparison.OrdinalIgnoreCase))
+                    { index = i; break; }
+                }
+            }
+
+            if (index >= 0 && target[index] is JsonObject existingArticle)
+            {
+                var merged = (JsonObject)existingArticle.DeepClone();
+                foreach (var property in article)
+                    merged[property.Key] = property.Value?.DeepClone();
+                target[index] = merged;
+            }
+            else
+                target.Add(article.DeepClone());
+        }
+    }
+
     private JsonObject LoadMergedLawDatabase()
     {
         var rootPath = Path.Combine(_dataDir, "laws_database.json");
@@ -157,51 +206,36 @@ public partial class MainWindow : Window
         var root = File.Exists(rootPath)
             ? JsonNode.Parse(File.ReadAllText(rootPath)) as JsonObject ?? new JsonObject()
             : new JsonObject { ["Bases"] = new JsonObject() };
-        if (!File.Exists(profilePath)) return root;
-
-        var profile = JsonNode.Parse(File.ReadAllText(profilePath)) as JsonObject;
         var rootBases = root["Bases"] as JsonObject ?? new JsonObject();
-        var profileBases = profile?["Bases"] as JsonObject;
-        if (profileBases is null) return root;
+        root["Bases"] = rootBases;
 
-        foreach (var cat in profileBases)
+        // Extended Arbat source units are stored in compact per-category JSON files.
+        var extendedDirectory = Path.Combine(_dataDir, "ExtendedLaws");
+        if (Directory.Exists(extendedDirectory))
         {
-            if (cat.Value is not JsonArray fromProfile) continue;
-            var key = rootBases.Select(p => p.Key)
-                .FirstOrDefault(k => NormalizeCategory(k) == NormalizeCategory(cat.Key)) ?? cat.Key;
-            if (rootBases[key] is not JsonArray target)
+            foreach (var file in Directory.EnumerateFiles(extendedDirectory, "*.json").OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
             {
-                target = new JsonArray();
-                rootBases[key] = target;
-            }
-
-            foreach (var node in fromProfile)
-            {
-                if (node is not JsonObject article) continue;
-                var number = article["Number"]?.ToString()?.Trim() ?? "";
-                var index = -1;
-                if (number.Length > 0)
-                {
-                    for (int i = 0; i < target.Count; i++)
-                    {
-                        if (target[i] is JsonObject existing &&
-                            string.Equals(existing["Number"]?.ToString()?.Trim(), number, StringComparison.OrdinalIgnoreCase))
-                        { index = i; break; }
-                    }
-                }
-                if (index >= 0 && target[index] is JsonObject existingArticle)
-                {
-                    var mergedArticle = (JsonObject)existingArticle.DeepClone();
-                    foreach (var property in article)
-                        mergedArticle[property.Key] = property.Value?.DeepClone();
-                    target[index] = mergedArticle;
-                }
-                else
-                    target.Add(article.DeepClone());
+                var extension = JsonNode.Parse(File.ReadAllText(file)) as JsonObject;
+                var category = extension?["Category"]?.ToString();
+                var articles = extension?["Articles"] as JsonArray;
+                if (!string.IsNullOrWhiteSpace(category) && articles is not null)
+                    MergeArticleArray(rootBases, category, articles);
             }
         }
 
-        root["Bases"] = rootBases;
+        // Profile data overlays source records without deleting source metadata.
+        if (File.Exists(profilePath))
+        {
+            var profile = JsonNode.Parse(File.ReadAllText(profilePath)) as JsonObject;
+            var profileBases = profile?["Bases"] as JsonObject;
+            if (profileBases is not null)
+            {
+                foreach (var category in profileBases)
+                    if (category.Value is JsonArray articles)
+                        MergeArticleArray(rootBases, category.Key, articles);
+            }
+        }
+
         return root;
     }
 
@@ -330,7 +364,9 @@ public partial class MainWindow : Window
             foreach (var category in bases)
             {
                 if (category.Value is not JsonArray articles) continue;
-                var nonEmpty = articles.OfType<JsonObject>().ToList();
+                var nonEmpty = articles.OfType<JsonObject>()
+                    .Where(article => !(bool.TryParse(article["InMemo"]?.ToString(), out var include) && !include))
+                    .ToList();
                 if (nonEmpty.Count == 0) continue;
 
                 flow.Blocks.Add(new Paragraph(new Run("━━ " + NormalizeCategory(category.Key).ToUpperInvariant() + " ━━"))
