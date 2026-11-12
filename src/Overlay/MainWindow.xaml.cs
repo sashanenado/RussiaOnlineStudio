@@ -22,7 +22,8 @@ public partial class MainWindow : Window
     private readonly string _positionsPath;
     private HwndSource? _source;
     private FileSystemWatcher? _watcher;
-    private bool _moveMode, _panelsChanged, _lawsChanged, _profileChanged;
+    private bool _moveMode, _panelsChanged, _lawsChanged, _profileChanged, _settingsChanged;
+    private double _globalFontMultiplier = 1.0;
     private string _activeProfile = "main";
     private PanelWindow? _lawMemoWindow;
 
@@ -41,6 +42,7 @@ public partial class MainWindow : Window
         Loaded += (_, _) =>
         {
             _activeProfile = ReadActiveProfile();
+            LoadGlobalFontMultiplier();
             LoadPanelsAndLaws();
             StartWatcher();
             var fade = new System.Windows.Media.Animation.DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(260));
@@ -91,6 +93,9 @@ public partial class MainWindow : Window
         else if (name.Equals("panels.json", StringComparison.OrdinalIgnoreCase) ||
                  name.Equals("deleted_panels.json", StringComparison.OrdinalIgnoreCase))
             _panelsChanged = true;
+        else if (name.Equals("settings.json", StringComparison.OrdinalIgnoreCase) &&
+                 string.Equals(Path.GetDirectoryName(path), ProfileFolder, StringComparison.OrdinalIgnoreCase))
+            _settingsChanged = true;
         else
             return;
 
@@ -119,8 +124,43 @@ public partial class MainWindow : Window
                 return;
             }
         }
+        if (_settingsChanged)
+        {
+            _settingsChanged = false;
+            LoadGlobalFontMultiplier();
+            RefreshPanelWindows();
+            RefreshLawMemo();
+        }
         if (_panelsChanged) { _panelsChanged = false; RefreshPanelWindows(); }
         if (_lawsChanged) { _lawsChanged = false; RefreshLawMemo(); }
+    }
+
+    private void LoadGlobalFontMultiplier()
+    {
+        var value = 0.6;
+        var profileSettings = Path.Combine(ProfileFolder, "settings.json");
+        var legacySettings = Path.Combine(_dataDir, "overlay_settings.json");
+        try
+        {
+            if (File.Exists(profileSettings))
+            {
+                var settings = JsonNode.Parse(File.ReadAllText(profileSettings)) as JsonObject;
+                if (double.TryParse(settings?["GameScale"]?.ToString(), System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out var profileScale))
+                    value = profileScale;
+            }
+            else if (File.Exists(legacySettings))
+            {
+                var settings = JsonNode.Parse(File.ReadAllText(legacySettings)) as JsonObject;
+                if (double.TryParse(settings?["OverlayFontScale"]?.ToString(), System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out var legacyScale))
+                    value = legacyScale;
+            }
+        }
+        catch { }
+
+        // 0.6 is the legacy default and maps to 100%; users can scale up or down from Studio.
+        _globalFontMultiplier = Math.Clamp(value / 0.6, 0.5, 1.8);
     }
 
     private string ReadActiveProfile()
@@ -357,7 +397,7 @@ public partial class MainWindow : Window
             foreach (var node in array)
             {
                 if (node is not JsonObject obj || obj["Visible"]?.ToString() == "false") continue;
-                var panel = PanelDefinition.Read(obj);
+                var panel = PanelDefinition.Read(obj, _globalFontMultiplier);
                 ApplySavedPosition(panel);
                 var window = new PanelWindow(panel, _positionsPath) { MoveMode = _moveMode };
                 TrackWindow(window);
@@ -374,7 +414,7 @@ public partial class MainWindow : Window
             var array = LoadMergedPanels();
             var definitions = array.OfType<JsonObject>()
                 .Where(o => o["Visible"]?.ToString() != "false")
-                .Select(PanelDefinition.Read)
+                .Select(obj => PanelDefinition.Read(obj, _globalFontMultiplier))
                 .ToDictionary(p => p.Id, StringComparer.OrdinalIgnoreCase);
 
             foreach (var old in _windows.Where(w => !w.IsLawMemo).ToArray())
@@ -517,7 +557,7 @@ public partial class MainWindow : Window
                 Title = $"ПАМЯТКА ЗАКОНОВ · {count} СТАТЕЙ",
                 Text = new TextRange(flow.ContentStart, flow.ContentEnd).Text,
                 RichTextRtf = Encoding.UTF8.GetString(output.ToArray()),
-                Width = 640, Height = 760, X = 500, Y = 80, Opacity = .97, Scale = 1, Topmost = true
+                Width = 640, Height = 760, X = 500, Y = 80, Opacity = .97, Scale = _globalFontMultiplier, Topmost = true
             };
 
             if (_lawMemoWindow is null)
@@ -621,7 +661,7 @@ public sealed class PanelDefinition
     public double Opacity { get; set; } = .94;
     public bool Topmost { get; set; } = true;
 
-    public static PanelDefinition Read(JsonObject o) => new()
+    public static PanelDefinition Read(JsonObject o, double globalFontMultiplier = 1.0) => new()
     {
         Id = o["Id"]?.ToString() ?? "",
         Title = o["Title"]?.ToString() ?? "Памятка",
@@ -629,7 +669,7 @@ public sealed class PanelDefinition
         RichTextRtf = o["RichTextRtf"]?.ToString() ?? "",
         Width = N(o, "Width", 360),
         Height = N(o, "Height", 260),
-        Scale = N(o, "Scale", 1),
+        Scale = N(o, "Scale", 1) * globalFontMultiplier,
         X = N(o, "X", 80),
         Y = N(o, "Y", 100),
         Opacity = N(o, "Opacity", .94),
