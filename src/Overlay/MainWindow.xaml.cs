@@ -131,13 +131,34 @@ public partial class MainWindow : Window
     }
 
     private string ProfileFolder => Path.Combine(_dataDir, "Profiles", _activeProfile);
-    private string PanelsPath
+    private string ProfilePanelsPath => Path.Combine(ProfileFolder, "panels.json");
+
+    private JsonArray LoadMergedPanels()
     {
-        get
+        var merged = new Dictionary<string, JsonObject>(StringComparer.OrdinalIgnoreCase);
+
+        void Read(string path, bool profileOverrides)
         {
-            var candidate = Path.Combine(ProfileFolder, "panels.json");
-            return File.Exists(candidate) ? candidate : Path.Combine(_dataDir, "panels.json");
+            if (!File.Exists(path)) return;
+            var array = JsonNode.Parse(File.ReadAllText(path)) as JsonArray;
+            if (array is null) return;
+            foreach (var node in array)
+            {
+                if (node is not JsonObject panel) continue;
+                var id = panel["Id"]?.ToString();
+                if (string.IsNullOrWhiteSpace(id)) continue;
+                if (profileOverrides || !merged.ContainsKey(id))
+                    merged[id] = (JsonObject)panel.DeepClone();
+            }
         }
+
+        // Shared legacy defaults are loaded first; a profile can override a panel with the same ID.
+        Read(Path.Combine(_dataDir, "panels.json"), profileOverrides: false);
+        Read(ProfilePanelsPath, profileOverrides: true);
+
+        var result = new JsonArray();
+        foreach (var panel in merged.Values) result.Add(panel);
+        return result;
     }
 
     private static string NormalizeCategory(string? value)
@@ -316,12 +337,9 @@ public partial class MainWindow : Window
 
     private void LoadPanelFile()
     {
-        var path = PanelsPath;
-        if (!File.Exists(path)) return;
         try
         {
-            var array = JsonNode.Parse(File.ReadAllText(path)) as JsonArray;
-            if (array is null) throw new InvalidDataException("Неверный формат panels.json");
+            var array = LoadMergedPanels();
             foreach (var node in array)
             {
                 if (node is not JsonObject obj || obj["Visible"]?.ToString() == "false") continue;
@@ -337,21 +355,9 @@ public partial class MainWindow : Window
 
     private void RefreshPanelWindows()
     {
-        var path = PanelsPath;
-        if (!File.Exists(path))
-        {
-            foreach (var window in _windows.Where(w => !w.IsLawMemo).ToArray())
-            {
-                window.CloseWithoutSaving();
-                _windows.Remove(window);
-            }
-            return;
-        }
-
         try
         {
-            var array = JsonNode.Parse(File.ReadAllText(path)) as JsonArray;
-            if (array is null) return;
+            var array = LoadMergedPanels();
             var definitions = array.OfType<JsonObject>()
                 .Where(o => o["Visible"]?.ToString() != "false")
                 .Select(PanelDefinition.Read)
