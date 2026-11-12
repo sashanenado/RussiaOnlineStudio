@@ -287,11 +287,12 @@ public partial class MainWindow : Window
     private void LoadPanels()
     {
         _panels.Clear();
-        if (File.Exists(PanelsPath))
+        var loadPath = File.Exists(PanelsPath) ? PanelsPath : Path.Combine(_dataDir, "panels.json");
+        if (File.Exists(loadPath))
         {
             try
             {
-                var arr = JsonNode.Parse(File.ReadAllText(PanelsPath)) as JsonArray;
+                var arr = JsonNode.Parse(File.ReadAllText(loadPath)) as JsonArray;
                 if (arr is not null)
                     foreach (var node in arr)
                         if (node is JsonObject obj) _panels.Add(PanelRow.FromJson(obj));
