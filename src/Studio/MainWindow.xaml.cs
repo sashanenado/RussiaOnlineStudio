@@ -359,25 +359,46 @@ public partial class MainWindow : Window
     private void LoadPanels()
     {
         _panels.Clear();
-        var loadPath = File.Exists(PanelsPath) ? PanelsPath : Path.Combine(_dataDir, "panels.json");
-        if (File.Exists(loadPath))
+        var merged = new Dictionary<string, PanelRow>(StringComparer.OrdinalIgnoreCase);
+
+        void ReadPanelFile(string path, bool profileOverrides)
         {
+            if (!File.Exists(path)) return;
             try
             {
-                var arr = JsonNode.Parse(File.ReadAllText(loadPath)) as JsonArray;
-                if (arr is not null)
-                    foreach (var node in arr)
-                        if (node is JsonObject obj) _panels.Add(PanelRow.FromJson(obj));
+                var array = JsonNode.Parse(File.ReadAllText(path)) as JsonArray;
+                if (array is null) return;
+                foreach (var node in array)
+                {
+                    if (node is not JsonObject obj) continue;
+                    var panel = PanelRow.FromJson(obj);
+                    if (string.IsNullOrWhiteSpace(panel.Id))
+                        panel.Id = Guid.NewGuid().ToString("N");
+
+                    if (profileOverrides || !merged.ContainsKey(panel.Id))
+                        merged[panel.Id] = panel;
+                }
             }
-            catch (Exception ex) { LogError(ex, "LoadPanels"); }
+            catch (Exception ex) { LogError(ex, "LoadPanels: " + path); }
         }
+
+        // Shared defaults are always loaded first; profile-specific copies override them by ID.
+        ReadPanelFile(Path.Combine(_dataDir, "panels.json"), profileOverrides: false);
+        ReadPanelFile(PanelsPath, profileOverrides: true);
+
+        foreach (var panel in merged.Values)
+            _panels.Add(panel);
+
         if (_panels.Count == 0)
+        {
             _panels.Add(new PanelRow
             {
                 Id = Guid.NewGuid().ToString("N"), Title = "Порядок действий",
                 Body = "Добавь собственные инструкции в этом окне.",
                 Width = 360, Height = 260, Scale = 1, Visible = true
             });
+        }
+
         PanelList.SelectedIndex = _panels.Count > 0 ? 0 : -1;
         UpdatePreview();
     }
