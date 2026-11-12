@@ -355,6 +355,7 @@ public partial class MainWindow : Window
                 }
                 else
                 {
+                    ApplySavedPosition(definition);
                     existing.UpdateFromDefinition(definition);
                     if (!existing.IsVisible) existing.Show();
                 }
@@ -484,6 +485,7 @@ public partial class MainWindow : Window
             }
             else
             {
+                ApplySavedPosition(memo);
                 _lawMemoWindow.UpdateFromDefinition(memo);
                 if (!_lawMemoWindow.IsVisible) _lawMemoWindow.Show();
             }
