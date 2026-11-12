@@ -301,11 +301,11 @@ public partial class MainWindow : Window
     {
         var selected = CategoryBox.SelectedItem?.ToString() ?? "Все категории";
         var query = SearchBox.Text?.Trim() ?? "";
-        var onlyFavorites = false;
+        var onlyFavorites = OnlyFavorites.IsChecked == true;
         var rows = _laws.Where(x =>
             (selected == "Все категории" || NormalizeCategory(x.Category).Equals(NormalizeCategory(selected), StringComparison.OrdinalIgnoreCase)) &&
             (!onlyFavorites || x.Favorite) &&
-            (query.Length == 0 || string.Join(" ", x.Number, x.Title, x.Text).Contains(query, StringComparison.OrdinalIgnoreCase)))
+            (query.Length == 0 || string.Join(" ", x.Number, x.Title, x.Text, x.Tags).Contains(query, StringComparison.OrdinalIgnoreCase)))
             .ToList();
         var old = _selectedLaw;
         LawList.ItemsSource = rows;
@@ -381,7 +381,7 @@ public partial class MainWindow : Window
             EditCategory.SelectedItem = row?.Category ?? "УК";
             EditNumber.Text = row?.Number ?? "";
             EditTitle.Text = row?.Title ?? "";
-            EditNote.Text = row?.Note ?? "";
+            EditNote.Text = row?.Note ?? "";\n            EditTags.Text = row?.Tags ?? "";
             EditFavorite.IsChecked = row?.Favorite ?? false;
             var range = new TextRange(EditRich.Document.ContentStart, EditRich.Document.ContentEnd);
             range.Text = "";
@@ -428,14 +428,14 @@ public partial class MainWindow : Window
         _selectedLaw.Title = EditTitle.Text.Trim();
         _selectedLaw.Text = GetEditorPlainText();
         _selectedLaw.RichTextRtf = GetEditorRtf();
-        _selectedLaw.Note = EditNote.Text;
+        _selectedLaw.Note = EditNote.Text;\n        _selectedLaw.Tags = EditTags.Text;
         _selectedLaw.Favorite = EditFavorite.IsChecked == true;
 
         _selectedLaw.Raw["Number"] = _selectedLaw.Number;
         _selectedLaw.Raw["Title"] = _selectedLaw.Title;
         _selectedLaw.Raw["Text"] = _selectedLaw.Text;
         _selectedLaw.Raw["RichTextRtf"] = _selectedLaw.RichTextRtf;
-        _selectedLaw.Raw["Note"] = _selectedLaw.Note;
+        _selectedLaw.Raw["Note"] = _selectedLaw.Note;\n        _selectedLaw.Raw["Tags"] = new JsonArray(_selectedLaw.Tags.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Select(tag => (JsonNode?)JsonValue.Create(tag)).ToArray());
         _selectedLaw.Raw["Favorite"] = _selectedLaw.Favorite;
 
         if (!_selectedLaw.OriginalCategory.Equals(targetStorageKey, StringComparison.OrdinalIgnoreCase))
@@ -499,6 +499,7 @@ public partial class MainWindow : Window
     }
 
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e) => RefreshLawFilter();
+    private void FilterOptions_Changed(object sender, RoutedEventArgs e) => RefreshLawFilter();
     private void LawList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (LawList.SelectedItem is LawRow row) FillLawEditor(row);
