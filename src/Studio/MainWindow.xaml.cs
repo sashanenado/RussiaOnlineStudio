@@ -327,13 +327,14 @@ public sealed class PanelRow
     public string Title { get; set; } = "Новая панель";
     public string Body { get; set; } = "";
     public double Width { get; set; } = 360;
+    public double Height { get; set; } = 260;
     public double Scale { get; set; } = 1;
     public double X { get; set; } = 80;
     public double Y { get; set; } = 100;
     public double Opacity { get; set; } = .94;
     public bool Visible { get; set; } = true;
     public bool Topmost { get; set; } = true;
-    public JsonObject ToJson() => new() { ["Id"] = Id, ["Title"] = Title, ["Text"] = Body, ["Width"] = Width, ["Scale"] = Scale, ["X"] = X, ["Y"] = Y, ["Opacity"] = Opacity, ["Visible"] = Visible, ["Topmost"] = Topmost };
-    public static PanelRow FromJson(JsonObject j) => new() { Id = j["Id"]?.ToString() ?? Guid.NewGuid().ToString("N"), Title = j["Title"]?.ToString() ?? "Панель", Body = j["Text"]?.ToString() ?? j["Body"]?.ToString() ?? "", Width = ReadDouble(j,"Width",360), Scale = ReadDouble(j,"Scale",1), X = ReadDouble(j,"X",80), Y = ReadDouble(j,"Y",100), Opacity = ReadDouble(j,"Opacity",.94), Visible = j["Visible"]?.GetValue<bool>() ?? true, Topmost = j["Topmost"]?.GetValue<bool>() ?? true };
+    public JsonObject ToJson() => new() { ["Id"] = Id, ["Title"] = Title, ["Text"] = Body, ["Width"] = Width, ["Height"] = Height, ["Scale"] = Scale, ["X"] = X, ["Y"] = Y, ["Opacity"] = Opacity, ["Visible"] = Visible, ["Topmost"] = Topmost };
+    public static PanelRow FromJson(JsonObject j) => new() { Id = j["Id"]?.ToString() ?? Guid.NewGuid().ToString("N"), Title = j["Title"]?.ToString() ?? "Панель", Body = j["Text"]?.ToString() ?? j["Body"]?.ToString() ?? "", Width = ReadDouble(j,"Width",360), Height = ReadDouble(j,"Height",260), Scale = ReadDouble(j,"Scale",1), X = ReadDouble(j,"X",80), Y = ReadDouble(j,"Y",100), Opacity = ReadDouble(j,"Opacity",.94), Visible = j["Visible"]?.GetValue<bool>() ?? true, Topmost = j["Topmost"]?.GetValue<bool>() ?? true };
     private static double ReadDouble(JsonObject o,string k,double d) => double.TryParse(o[k]?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture,out var v)?v:d;
 }
