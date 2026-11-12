@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using System.Windows.Media.Animation;
 
 namespace RussiaOnlineOverlay;
@@ -18,6 +19,7 @@ public sealed class PanelWindow : Window
     private readonly string? _positionsPath;
     private readonly TextBlock _heading;
     private readonly RichTextBox _body;
+    private readonly DispatcherTimer _positionTimer;
     private bool _isClosing, _skipSave;
 
     public bool MoveMode { get; set; }
@@ -102,6 +104,12 @@ public sealed class PanelWindow : Window
         root.Child = layout;
         Content = root;
 
+        _positionTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
+        _positionTimer.Tick += (_, _) =>
+        {
+            _positionTimer.Stop();
+            SavePosition();
+        };
         LocationChanged += (_, _) => SchedulePositionSave();
         SizeChanged += (_, _) => SchedulePositionSave();
         Loaded += (_, _) =>
@@ -114,6 +122,7 @@ public sealed class PanelWindow : Window
         Closing += (_, _) =>
         {
             _isClosing = true;
+            _positionTimer.Stop();
             if (!_skipSave) SavePosition();
         };
 
@@ -185,7 +194,8 @@ public sealed class PanelWindow : Window
     private void SchedulePositionSave()
     {
         if (_isClosing || _skipSave || string.IsNullOrWhiteSpace(_positionsPath)) return;
-        SavePosition();
+        _positionTimer.Stop();
+        _positionTimer.Start();
     }
 
     private void SavePosition()
