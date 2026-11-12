@@ -842,9 +842,19 @@ public partial class MainWindow : Window
             var merged = MergeLawDatabases(_lawRoot, imported);
             if (merged["Bases"] is not JsonObject mergedBases)
                 throw new InvalidDataException("Не удалось прочитать разделы базы.");
-            _lawRoot = merged;
-            _bases = mergedBases;
-            LoadLawRows();
+
+            _lawSaveTimer.Stop();
+            _selectedLaw = null;
+            _loading = true;
+            try
+            {
+                _lawRoot = merged;
+                _bases = mergedBases;
+                LoadLawRows();
+            }
+            finally { _loading = false; }
+
+            FillLawEditor(null);
             SaveLaws(createBackup: true);
             RefreshLawFilter();
             StatusText.Text = $"Импорт завершён. Сейчас в базе {_laws.Count} статей.";
