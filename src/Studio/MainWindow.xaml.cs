@@ -50,7 +50,7 @@ public partial class MainWindow : Window
             RunSafe(() =>
             {
                 ApplyLawEditor();
-                SaveLaws();
+                SaveLaws(createBackup: false);
                 RefreshLawFilter();
             }, "Автосохранение статьи");
         };
@@ -61,7 +61,7 @@ public partial class MainWindow : Window
             RunSafe(() =>
             {
                 ApplyPanelEditor();
-                SavePanels();
+                SavePanels(createBackup: false);
                 PanelList.Items.Refresh();
                 UpdatePreview();
             }, "Автосохранение панели");
@@ -323,7 +323,7 @@ public partial class MainWindow : Window
         if (old is not null && rows.Contains(old)) LawList.SelectedItem = old;
     }
 
-    private void SaveJson(string path, JsonNode node)
+    private void SaveJson(string path, JsonNode node, bool createBackup = true)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
@@ -336,7 +336,7 @@ public partial class MainWindow : Window
                 writer.Flush();
             }
 
-            if (File.Exists(path))
+            if (createBackup && File.Exists(path))
             {
                 var backup = path + ".backup_" + DateTime.UtcNow.ToString("yyyyMMdd_HHmmss_fff") + "_" + Guid.NewGuid().ToString("N")[..6];
                 File.Copy(path, backup, false);
@@ -357,19 +357,19 @@ public partial class MainWindow : Window
         File.Move(temp, path, true);
     }
 
-    private void SaveLaws()
+    private void SaveLaws(bool createBackup = true)
     {
-        SaveJson(LawsPath, _lawRoot);
+        SaveJson(LawsPath, _lawRoot, createBackup);
         WriteSignal("laws_revision.txt");
         StatusText.Text = $"База сохранена • {_laws.Count} статей • Overlay обновит памятку";
         UpdateStats();
     }
 
-    private void SavePanels()
+    private void SavePanels(bool createBackup = true)
     {
         var arr = new JsonArray();
         foreach (var panel in _panels) arr.Add(panel.ToJson());
-        SaveJson(PanelsPath, arr);
+        SaveJson(PanelsPath, arr, createBackup);
         WriteSignal("panels_revision.txt");
         StatusText.Text = "Панели сохранены • Overlay обновляет окна";
         UpdateStats();
@@ -521,7 +521,7 @@ public partial class MainWindow : Window
         if (!_loading && _selectedLaw is not null && !ReferenceEquals(_selectedLaw, row))
         {
             _lawSaveTimer.Stop();
-            RunSafe(() => { ApplyLawEditor(); SaveLaws(); }, "Сохранение предыдущей статьи при переключении");
+            RunSafe(() => { ApplyLawEditor(); SaveLaws(createBackup: false); }, "Сохранение предыдущей статьи при переключении");
         }
         FillLawEditor(row);
     }
@@ -695,7 +695,7 @@ public partial class MainWindow : Window
         if (!_loading && _selectedPanel is not null && !ReferenceEquals(_selectedPanel, row))
         {
             _panelSaveTimer.Stop();
-            RunSafe(() => { ApplyPanelEditor(); SavePanels(); }, "Сохранение предыдущей панели при переключении");
+            RunSafe(() => { ApplyPanelEditor(); SavePanels(createBackup: false); }, "Сохранение предыдущей панели при переключении");
         }
         _panelSaveTimer.Stop();
         _selectedPanel = row;
