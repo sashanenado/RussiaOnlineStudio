@@ -417,7 +417,7 @@ public partial class MainWindow : Window
             {
                 ApplySavedPosition(memo);
                 _lawMemoWindow = new PanelWindow(memo, _positionsPath, isLawMemo: true) { MoveMode = _moveMode };
-                _windows.Add(_lawMemoWindow);
+                TrackWindow(_lawMemoWindow);
                 _lawMemoWindow.Show();
             }
             else
@@ -432,6 +432,16 @@ public partial class MainWindow : Window
         {
             Status.Text = "Ошибка формирования памятки законов: " + ex.Message;
         }
+    }
+
+    private void TrackWindow(PanelWindow window)
+    {
+        if (!_windows.Contains(window)) _windows.Add(window);
+        window.Closed += (_, _) =>
+        {
+            _windows.Remove(window);
+            if (ReferenceEquals(_lawMemoWindow, window)) _lawMemoWindow = null;
+        };
     }
 
     private void CloseAllWindows()
