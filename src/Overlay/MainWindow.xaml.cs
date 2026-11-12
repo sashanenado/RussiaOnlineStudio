@@ -189,8 +189,15 @@ public partial class MainWindow : Window
                         { index = i; break; }
                     }
                 }
-                if (index >= 0) target[index] = article.DeepClone();
-                else target.Add(article.DeepClone());
+                if (index >= 0 && target[index] is JsonObject existingArticle)
+                {
+                    var mergedArticle = (JsonObject)existingArticle.DeepClone();
+                    foreach (var property in article)
+                        mergedArticle[property.Key] = property.Value?.DeepClone();
+                    target[index] = mergedArticle;
+                }
+                else
+                    target.Add(article.DeepClone());
             }
         }
 
