@@ -879,7 +879,8 @@ public partial class MainWindow : Window
         try
         {
             StatusText.Text = "Подготовка встроенного браузера...";
-            var userData = Path.Combine(_dataDir, "ForumBrowserProfile");
+            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var userData = Path.Combine(localAppData, "RussiaOnlineStudio", "ForumBrowserProfile");
             Directory.CreateDirectory(userData);
             var environment = await CoreWebView2Environment.CreateAsync(userDataFolder: userData);
             await ForumBrowser.EnsureCoreWebView2Async(environment);
