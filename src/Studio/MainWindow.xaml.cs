@@ -220,38 +220,58 @@ public partial class MainWindow : Window
                 if (sourceNode is not JsonObject sourceArticle) continue;
                 var id = sourceArticle["Id"]?.ToString()?.Trim() ?? "";
                 var number = sourceArticle["Number"]?.ToString()?.Trim() ?? "";
-                var index = -1;
+                JsonObject? existingArticle = null;
 
-                if (!string.IsNullOrWhiteSpace(id))
+                // Find stable IDs globally so a category change removes the old source-category copy.
+                if (id.Length > 0)
                 {
-                    for (var i = 0; i < targetArray.Count; i++)
+                    foreach (var otherCategory in targetBases)
                     {
-                        if (targetArray[i] is JsonObject current &&
-                            string.Equals(current["Id"]?.ToString()?.Trim(), id, StringComparison.OrdinalIgnoreCase))
-                        { index = i; break; }
+                        if (otherCategory.Value is not JsonArray otherArray) continue;
+                        for (var i = 0; i < otherArray.Count; i++)
+                        {
+                            if (otherArray[i] is JsonObject current &&
+                                string.Equals(current["Id"]?.ToString()?.Trim(), id, StringComparison.OrdinalIgnoreCase))
+                            {
+                                existingArticle = current;
+                                if (!string.Equals(otherCategory.Key, targetKey, StringComparison.OrdinalIgnoreCase))
+                                    otherArray.RemoveAt(i);
+                                break;
+                            }
+                        }
+                        if (existingArticle is not null) break;
                     }
                 }
 
-                // Existing legacy articles do not have Id yet; their stable article number is the fallback.
-                if (index < 0 && !string.IsNullOrWhiteSpace(number))
+                // Legacy entries without an ID only match by article number inside the target category.
+                if (existingArticle is null && number.Length > 0)
                 {
                     for (var i = 0; i < targetArray.Count; i++)
                     {
                         if (targetArray[i] is JsonObject current &&
                             string.Equals(current["Number"]?.ToString()?.Trim(), number, StringComparison.OrdinalIgnoreCase))
-                        { index = i; break; }
+                        { existingArticle = current; break; }
                     }
                 }
 
-                if (index >= 0 && targetArray[index] is JsonObject existingArticle)
+                var mergedArticle = existingArticle is null
+                    ? (JsonObject)sourceArticle.DeepClone()
+                    : (JsonObject)existingArticle.DeepClone();
+                foreach (var property in sourceArticle)
+                    mergedArticle[property.Key] = property.Value?.DeepClone();
+
+                var destinationIndex = -1;
+                if (id.Length > 0)
                 {
-                    var mergedArticle = (JsonObject)existingArticle.DeepClone();
-                    foreach (var property in sourceArticle)
-                        mergedArticle[property.Key] = property.Value?.DeepClone();
-                    targetArray[index] = mergedArticle;
+                    for (var i = 0; i < targetArray.Count; i++)
+                    {
+                        if (targetArray[i] is JsonObject current &&
+                            string.Equals(current["Id"]?.ToString()?.Trim(), id, StringComparison.OrdinalIgnoreCase))
+                        { destinationIndex = i; break; }
+                    }
                 }
-                else
-                    targetArray.Add(sourceArticle.DeepClone());
+                if (destinationIndex >= 0) targetArray[destinationIndex] = mergedArticle;
+                else targetArray.Add(mergedArticle);
             }
         }
         return merged;
