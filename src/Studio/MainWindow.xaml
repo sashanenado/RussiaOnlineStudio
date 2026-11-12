@@ -47,12 +47,13 @@
     <Grid Margin="12">
      <Grid.ColumnDefinitions><ColumnDefinition Width="330"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
      <Grid>
-      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
       <ComboBox x:Name="CategoryBox" Grid.Row="0" SelectionChanged="CategoryBox_SelectionChanged"/>
-      <TextBox x:Name="SearchBox" Grid.Row="1" ToolTip="Поиск по номеру, названию, тексту"/>
-      <ListBox x:Name="LawList" Grid.Row="2" Background="#10161D" Foreground="#E8EDF3" BorderBrush="#2D3947"
+      <TextBox x:Name="SearchBox" Grid.Row="1" ToolTip="Поиск по номеру, названию, тексту" TextChanged="SearchBox_TextChanged"/>
+      <CheckBox x:Name="OnlyFavorites" Grid.Row="2" Content="Только избранное" Foreground="#DCC18E" Checked="FilterOptions_Changed" Unchecked="FilterOptions_Changed"/>
+      <ListBox x:Name="LawList" Grid.Row="3" Background="#10161D" Foreground="#E8EDF3" BorderBrush="#2D3947"
        SelectionChanged="LawList_SelectionChanged" DisplayMemberPath="Display" Margin="3"/>
-      <StackPanel Grid.Row="3" Orientation="Horizontal">
+      <StackPanel Grid.Row="4" Orientation="Horizontal">
        <Button Content="＋ Добавить в выбранную категорию" Background="#B99660" Foreground="#11151A" Click="AddLaw_Click"/>
       </StackPanel>
      </Grid>
@@ -109,11 +110,11 @@
         <TextBlock Text="Заметка / комментарий" Foreground="#9AA8B7" FontSize="11" Margin="4,0"/>
         <TextBox x:Name="EditNote" TextChanged="LawEditor_TextChanged" MinHeight="34"/>
        </StackPanel>
-       <RichTextBox x:Name="EditRich" Grid.Row="5" Background="#0F151C" Foreground="#E8EDF3" BorderBrush="#303B48" BorderThickness="1"
+       <StackPanel Grid.Row="5" Margin="0,0,0,7"><TextBlock Text="Теги через запятую" Foreground="#9AA8B7" FontSize="11" Margin="4,0"/><TextBox x:Name="EditTags" TextChanged="LawEditor_TextChanged"/></StackPanel>\n       <RichTextBox x:Name="EditRich" Grid.Row="6" Background="#0F151C" Foreground="#E8EDF3" BorderBrush="#303B48" BorderThickness="1"
         Padding="12" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextChanged="LawEditor_TextChanged">
         <FlowDocument PagePadding="0"><Paragraph/></FlowDocument>
        </RichTextBox>
-       <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+       <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
         <Button Content="Копировать" Click="CopyLaw_Click"/>
         <Button Content="Удалить" Foreground="#F09B9B" Click="DeleteLaw_Click"/>
         <Button Content="Сохранить статью" Background="#B99660" Foreground="#11151A" Click="SaveLaw_Click"/>
