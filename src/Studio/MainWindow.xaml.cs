@@ -365,7 +365,7 @@ public partial class MainWindow : Window
         var rows = _laws.Where(x =>
             (selected == "Все категории" || NormalizeCategory(x.Category).Equals(NormalizeCategory(selected), StringComparison.OrdinalIgnoreCase)) &&
             (!onlyFavorites || x.Favorite) &&
-            (query.Length == 0 || string.Join(" ", x.Number, x.Title, x.Text, x.Tags).Contains(query, StringComparison.OrdinalIgnoreCase)))
+            (query.Length == 0 || string.Join(" ", x.Number, x.Title, x.Text, x.Tags, x.Note, x.Raw["SourceRef"]?.ToString(), x.Raw["SourceLawTitle"]?.ToString()).Contains(query, StringComparison.OrdinalIgnoreCase)))
             .ToList();
         var old = _selectedLaw;
         LawList.ItemsSource = rows;
@@ -468,7 +468,13 @@ public partial class MainWindow : Window
             }
             else
                 range.Text = row?.Text ?? "";
-            EditorHint.Text = row is null ? "Создай новую статью или выбери существующую" : $"Категория: {row.Category} • {row.Number}";
+            var sourceRef = row?.Raw["SourceRef"]?.ToString();
+            var sourceLaw = row?.Raw["SourceLawTitle"]?.ToString();
+            EditorHint.Text = row is null
+                ? "Создай новую статью или выбери существующую"
+                : $"Категория: {row.Category} • {row.Number}" +
+                  (string.IsNullOrWhiteSpace(sourceRef) ? "" : $" • Источник: {sourceRef}") +
+                  (string.IsNullOrWhiteSpace(sourceLaw) ? "" : $" — {sourceLaw}");
         }
         finally { _loading = false; }
     }
