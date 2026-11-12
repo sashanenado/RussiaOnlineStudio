@@ -136,7 +136,22 @@ public partial class MainWindow : Window
             var bundled = LoadBundledOrDefault();
             JsonObject profileDb = new();
             if (File.Exists(LawsPath))
-                profileDb = JsonNode.Parse(File.ReadAllText(LawsPath)) as JsonObject ?? new JsonObject();
+            {
+                try
+                {
+                    var parsedProfile = JsonNode.Parse(File.ReadAllText(LawsPath)) as JsonObject;
+                    if (parsedProfile?["Bases"] is JsonObject)
+                        profileDb = parsedProfile;
+                    else
+                        LogError(new InvalidDataException("Профильная база не содержит объекта Bases; загружена общая база без удаления файла профиля."),
+                            "LoadProfileLawDatabase");
+                }
+                catch (Exception profileException)
+                {
+                    LogError(profileException, "LoadProfileLawDatabase");
+                    StatusText.Text = "Ошибка профиля: используется общая база. Старый файл профиля сохранён и не перезаписан.";
+                }
+            }
 
             _lawRoot = MergeLawDatabases(bundled, profileDb);
             _bases = _lawRoot["Bases"] as JsonObject ?? new JsonObject();
