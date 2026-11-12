@@ -179,6 +179,8 @@ public sealed class PanelWindow : Window
         _body.FontSize = 14 * panel.Scale;
         Width = Math.Clamp(panel.Width, 220, 1200);
         Height = Math.Clamp(panel.Height, 160, 1200);
+        Left = panel.X;
+        Top = panel.Y;
         Topmost = panel.Topmost;
         Background = MakeBackground(panel.Opacity);
         if (Content is Border border) border.Background = Background;
