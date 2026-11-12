@@ -161,6 +161,7 @@ public partial class MainWindow : Window
             LoadPanels();
             UiScale.Text = ReadSetting("UiScale", "125");
             GameScale.Text = ReadSetting("GameScale", "0.6");
+            ApplyUiScale();
             StatusText.Text = $"Данные загружены • статей: {_laws.Count} • профиль: {ProfileBox.Text}";
         }
         catch (Exception ex)
@@ -930,6 +931,28 @@ public partial class MainWindow : Window
         catch { return fallback; }
     }
 
+    private void ApplyUiScale()
+    {
+        if (RootLayout is null || UiScale is null) return;
+        var requestedPercent = double.TryParse(UiScale.Text, NumberStyles.Any,
+            CultureInfo.InvariantCulture, out var value) ? value : 125;
+        var requestedScale = Math.Clamp(requestedPercent / 100.0, .8, 1.6);
+
+        // Keep the scaled workspace inside the current Windows work area.
+        const double baseWidth = 1120;
+        const double baseHeight = 730;
+        var workArea = SystemParameters.WorkArea;
+        var maxByWidth = Math.Max(.8, (workArea.Width - 40) / baseWidth);
+        var maxByHeight = Math.Max(.8, (workArea.Height - 70) / baseHeight);
+        var appliedScale = Math.Min(requestedScale, Math.Min(maxByWidth, maxByHeight));
+
+        RootLayout.LayoutTransform = new ScaleTransform(appliedScale, appliedScale);
+        Width = baseWidth * appliedScale;
+        Height = baseHeight * appliedScale;
+        MinWidth = 900 * appliedScale;
+        MinHeight = 580 * appliedScale;
+    }
+
     private void SaveSettings_Click(object sender, RoutedEventArgs e)
     {
         RunSafe(() =>
@@ -944,7 +967,8 @@ public partial class MainWindow : Window
                 }
             };
             SaveJson(Path.Combine(ProfileFolder, "settings.json"), obj);
-            StatusText.Text = "Настройки сохранены.";
+            ApplyUiScale();
+            StatusText.Text = "Настройки сохранены и применены.";
         }, "Сохранение настроек");
     }
 
