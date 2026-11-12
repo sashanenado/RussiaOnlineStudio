@@ -35,6 +35,26 @@ jobs:
           }
           Write-Host "Law database is valid. Category counts:"
           $counts.GetEnumerator() | Sort-Object Name | Format-Table -AutoSize
+      - name: Validate extended Arbat catalog
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem Data/ExtendedLaws -Filter *.json -File)
+          if ($files.Count -ne 24) { throw "Expected 24 extended law group files, found $($files.Count)." }
+          $total = 0
+          foreach ($file in $files) {
+            $group = Get-Content $file.FullName -Raw | ConvertFrom-Json
+            if ([string]::IsNullOrWhiteSpace($group.Category)) { throw "Missing Category in $($file.Name)." }
+            if ($null -eq $group.Articles -or $group.Articles -isnot [array]) { throw "Articles array missing in $($file.Name)." }
+            $ids = @($group.Articles | ForEach-Object { $_.Id } | Where-Object { $_ })
+            if ($ids.Count -ne $group.Articles.Count) { throw "Missing stable IDs in $($file.Name)." }
+            if (($ids | Sort-Object -Unique).Count -ne $ids.Count) { throw "Duplicate IDs in $($file.Name)." }
+            $total += $group.Articles.Count
+          }
+          if ($total -lt 2500) { throw "Extended catalog unexpectedly small: $total entries." }
+          Write-Host "Validated $($files.Count) extended categories and $total Arbat units."
+          $rules = Get-Content Data/rules_docs.json -Raw | ConvertFrom-Json
+          $pgo = $rules | Where-Object { $_.id -eq "11" }
+          if ($null -eq $pgo -or $pgo.count -ne 118) { throw "PGO source metadata missing or changed." }
       - name: Publish Studio
         run: dotnet publish src/Studio/Studio.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o dist/RussiaOnline/studio_tmp
       - name: Publish Overlay
