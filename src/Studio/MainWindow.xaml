@@ -209,7 +209,7 @@
       <TextBlock Text="F8 — выход · F9 — показать/скрыть все окна · F10 — панель управления · F11 — режим перемещения" TextWrapping="Wrap"/>
       <TextBlock Text="Папка данных" Foreground="#9AA8B7" Margin="0,18,0,3"/><TextBlock x:Name="DataPath" TextWrapping="Wrap"/>
       <TextBlock Text="Профиль браузера" Foreground="#9AA8B7" Margin="0,18,0,3"/>
-      <TextBlock Text="Встроенный браузер использует отдельный профиль WebView2 внутри Data. Войди на форум вручную; пароль программа не запрашивает и не извлекает." TextWrapping="Wrap" Foreground="#95A3B2"/>
+      <TextBlock Text="Встроенный браузер хранит вход отдельно в профиле текущего пользователя Windows (LocalAppData), поэтому сессия не попадает в переносимую папку Data. Войди на форум вручную; пароль программа не запрашивает и не извлекает." TextWrapping="Wrap" Foreground="#95A3B2"/>
       <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
        <Button Content="Сохранить настройки" Background="#B99660" Foreground="#11151A" Click="SaveSettings_Click"/>
        <Button Content="Импорт базы JSON" Click="ImportDatabase_Click"/>
