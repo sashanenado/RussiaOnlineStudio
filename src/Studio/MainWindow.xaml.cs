@@ -517,7 +517,13 @@ public partial class MainWindow : Window
     private void FilterOptions_Changed(object sender, RoutedEventArgs e) => RefreshLawFilter();
     private void LawList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (LawList.SelectedItem is LawRow row) FillLawEditor(row);
+        if (LawList.SelectedItem is not LawRow row) return;
+        if (!_loading && _selectedLaw is not null && !ReferenceEquals(_selectedLaw, row))
+        {
+            _lawSaveTimer.Stop();
+            RunSafe(() => { ApplyLawEditor(); SaveLaws(); }, "Сохранение предыдущей статьи при переключении");
+        }
+        FillLawEditor(row);
     }
     private void LawEditor_TextChanged(object sender, TextChangedEventArgs e) => ScheduleLawSave();
     private void EditCategory_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -686,15 +692,23 @@ public partial class MainWindow : Window
     private void PanelList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (PanelList.SelectedItem is not PanelRow row) return;
+        if (!_loading && _selectedPanel is not null && !ReferenceEquals(_selectedPanel, row))
+        {
+            _panelSaveTimer.Stop();
+            RunSafe(() => { ApplyPanelEditor(); SavePanels(); }, "Сохранение предыдущей панели при переключении");
+        }
         _panelSaveTimer.Stop();
         _selectedPanel = row;
         _loading = true;
-        PanelTitle.Text = row.Title;
-        PanelBody.Text = row.Body;
-        PanelWidth.Text = row.Width.ToString(CultureInfo.InvariantCulture);
-        PanelScale.Text = row.Scale.ToString(CultureInfo.InvariantCulture);
-        PanelVisible.IsChecked = row.Visible;
-        _loading = false;
+        try
+        {
+            PanelTitle.Text = row.Title;
+            PanelBody.Text = row.Body;
+            PanelWidth.Text = row.Width.ToString(CultureInfo.InvariantCulture);
+            PanelScale.Text = row.Scale.ToString(CultureInfo.InvariantCulture);
+            PanelVisible.IsChecked = row.Visible;
+        }
+        finally { _loading = false; }
         UpdatePreview();
     }
 
