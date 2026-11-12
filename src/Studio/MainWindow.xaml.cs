@@ -428,14 +428,16 @@ public partial class MainWindow : Window
         _selectedLaw.Title = EditTitle.Text.Trim();
         _selectedLaw.Text = GetEditorPlainText();
         _selectedLaw.RichTextRtf = GetEditorRtf();
-        _selectedLaw.Note = EditNote.Text;\n        _selectedLaw.Tags = EditTags.Text;
+        _selectedLaw.Note = EditNote.Text;
+        _selectedLaw.Tags = EditTags.Text;
         _selectedLaw.Favorite = EditFavorite.IsChecked == true;
 
         _selectedLaw.Raw["Number"] = _selectedLaw.Number;
         _selectedLaw.Raw["Title"] = _selectedLaw.Title;
         _selectedLaw.Raw["Text"] = _selectedLaw.Text;
         _selectedLaw.Raw["RichTextRtf"] = _selectedLaw.RichTextRtf;
-        _selectedLaw.Raw["Note"] = _selectedLaw.Note;\n        _selectedLaw.Raw["Tags"] = new JsonArray(_selectedLaw.Tags.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Select(tag => (JsonNode?)JsonValue.Create(tag)).ToArray());
+        _selectedLaw.Raw["Note"] = _selectedLaw.Note;
+        _selectedLaw.Raw["Tags"] = new JsonArray(_selectedLaw.Tags.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Select(tag => (JsonNode?)JsonValue.Create(tag)).ToArray());
         _selectedLaw.Raw["Favorite"] = _selectedLaw.Favorite;
 
         if (!_selectedLaw.OriginalCategory.Equals(targetStorageKey, StringComparison.OrdinalIgnoreCase))
