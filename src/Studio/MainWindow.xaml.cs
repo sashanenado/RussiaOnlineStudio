@@ -172,6 +172,26 @@ public partial class MainWindow : Window
         var parsed = JsonNode.Parse(File.ReadAllText(bundled)) as JsonObject;
         if (parsed?["Bases"] is not JsonObject)
             throw new InvalidDataException("Data/laws_database.json не содержит объект Bases.");
+
+        var extendedDirectory = Path.Combine(_dataDir, "ExtendedLaws");
+        if (Directory.Exists(extendedDirectory))
+        {
+            foreach (var file in Directory.EnumerateFiles(extendedDirectory, "*.json").OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+            {
+                var extension = JsonNode.Parse(File.ReadAllText(file)) as JsonObject;
+                var category = extension?["Category"]?.ToString();
+                var articles = extension?["Articles"] as JsonArray;
+                if (string.IsNullOrWhiteSpace(category) || articles is null) continue;
+                var extensionDb = new JsonObject
+                {
+                    ["Bases"] = new JsonObject
+                    {
+                        [category] = articles.DeepClone()
+                    }
+                };
+                parsed = MergeLawDatabases(parsed, extensionDb);
+            }
+        }
         return parsed;
     }
 
@@ -223,8 +243,15 @@ public partial class MainWindow : Window
                     }
                 }
 
-                if (index >= 0) targetArray[index] = sourceArticle.DeepClone();
-                else targetArray.Add(sourceArticle.DeepClone());
+                if (index >= 0 && targetArray[index] is JsonObject existingArticle)
+                {
+                    var mergedArticle = (JsonObject)existingArticle.DeepClone();
+                    foreach (var property in sourceArticle)
+                        mergedArticle[property.Key] = property.Value?.DeepClone();
+                    targetArray[index] = mergedArticle;
+                }
+                else
+                    targetArray.Add(sourceArticle.DeepClone());
             }
         }
         return merged;
@@ -397,6 +424,7 @@ public partial class MainWindow : Window
             EditNote.Text = row?.Note ?? "";
             EditTags.Text = row?.Tags ?? "";
             EditFavorite.IsChecked = row?.Favorite ?? false;
+            EditInMemo.IsChecked = row?.InMemo ?? true;
             var range = new TextRange(EditRich.Document.ContentStart, EditRich.Document.ContentEnd);
             range.Text = "";
             if (!string.IsNullOrWhiteSpace(row?.RichTextRtf))
@@ -445,6 +473,7 @@ public partial class MainWindow : Window
         _selectedLaw.Note = EditNote.Text;
         _selectedLaw.Tags = EditTags.Text;
         _selectedLaw.Favorite = EditFavorite.IsChecked == true;
+        _selectedLaw.InMemo = EditInMemo.IsChecked == true;
 
         _selectedLaw.Raw["Id"] = _selectedLaw.Id;
         _selectedLaw.Raw["Number"] = _selectedLaw.Number;
@@ -454,6 +483,7 @@ public partial class MainWindow : Window
         _selectedLaw.Raw["Note"] = _selectedLaw.Note;
         _selectedLaw.Raw["Tags"] = new JsonArray(_selectedLaw.Tags.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Select(tag => (JsonNode?)JsonValue.Create(tag)).ToArray());
         _selectedLaw.Raw["Favorite"] = _selectedLaw.Favorite;
+        _selectedLaw.Raw["InMemo"] = _selectedLaw.InMemo;
 
         if (!_selectedLaw.OriginalCategory.Equals(targetStorageKey, StringComparison.OrdinalIgnoreCase))
         {
@@ -562,7 +592,8 @@ public partial class MainWindow : Window
                 ["Text"] = "",
                 ["RichTextRtf"] = "",
                 ["Note"] = "",
-                ["Favorite"] = false
+                ["Favorite"] = false,
+                ["InMemo"] = true
             };
             GetCategoryArray(chosenCategory).Add(raw);
             var storage = FindStorageCategory(chosenCategory);
@@ -1028,6 +1059,7 @@ public sealed class LawRow
     public string RichTextRtf { get; set; }
     public string Note { get; set; }
     public bool Favorite { get; set; }
+    public bool InMemo { get; set; }
     public string Display => $"{Number}  {Title}";
 
     public LawRow(string storageCategory, JsonObject raw)
@@ -1045,6 +1077,7 @@ public sealed class LawRow
         RichTextRtf = raw["RichTextRtf"]?.ToString() ?? "";
         Note = raw["Note"]?.ToString() ?? "";
         Favorite = bool.TryParse(raw["Favorite"]?.ToString(), out var fav) && fav;
+        InMemo = !bool.TryParse(raw["InMemo"]?.ToString(), out var inMemo) || inMemo;
     }
 }
 
