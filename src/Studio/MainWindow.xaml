@@ -62,97 +62,9 @@
       <Grid>
        <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/><RowDefinition Height="Auto"/>
        </Grid.RowDefinitions>
-       <DockPanel Grid.Row="0" Margin="3,0,3,12">
-        <StackPanel DockPanel.Dock="Left">
-         <TextBlock Text="Редактор статьи" FontSize="21" FontWeight="SemiBold" Foreground="#E9D0A5"/>
-         <TextBlock x:Name="EditorHint" Text="Выбери статью или создай новую" Foreground="#8F9CAB" FontSize="12"/>
-        </StackPanel>
-        <CheckBox x:Name="EditFavorite" Content="★ Избранное" Foreground="#DCC18E" VerticalAlignment="Center" HorizontalAlignment="Right" Checked="LawEditor_OptionChanged" Unchecked="LawEditor_OptionChanged"/>
-       </DockPanel>
-       <Grid Grid.Row="1" Margin="0,0,0,6">
-        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions>
-        <StackPanel Grid.Column="0">
-         <TextBlock Text="Категория" Foreground="#9AA8B7" FontSize="11" Margin="4,0"/>
-         <ComboBox x:Name="EditCategory" SelectionChanged="EditCategory_SelectionChanged"/>
-        </StackPanel>
-        <StackPanel Grid.Column="1">
-         <TextBlock Text="Номер" Foreground="#9AA8B7" FontSize="11" Margin="4,0"/>
-         <TextBox x:Name="EditNumber" TextChanged="LawEditor_TextChanged"/>
-        </StackPanel>
-       </Grid>
-       <StackPanel Grid.Row="2" Margin="0,0,0,6">
-        <TextBlock Text="Название" Foreground="#9AA8B7" FontSize="11" Margin="4,0"/>
-        <TextBox x:Name="EditTitle" TextChanged="LawEditor_TextChanged"/>
-       </StackPanel>
-       <DockPanel Grid.Row="3" Margin="3,6,3,6">
-        <TextBlock Text="Форматирование текста" Foreground="#9AA8B7" VerticalAlignment="Center" DockPanel.Dock="Left" Margin="0,0,12,0"/>
-        <WrapPanel>
-         <Button Content="B" FontWeight="Bold" Width="38" Click="Bold_Click"/>
-         <Button Content="I" FontStyle="Italic" Width="38" Click="Italic_Click"/>
-         <Button Content="U" Width="38" Click="Underline_Click"><Button.ContentTemplate><DataTemplate><TextBlock Text="U" TextDecorations="Underline"/></DataTemplate></Button.ContentTemplate></Button>
-         <TextBlock Text="Размер" Foreground="#9AA8B7" VerticalAlignment="Center" Margin="8,0,3,0"/>
-         <ComboBox x:Name="FontSizeBox" Width="78" SelectionChanged="FontSizeBox_SelectionChanged">
-          <ComboBoxItem Content="10"/><ComboBoxItem Content="11"/><ComboBoxItem Content="12"/><ComboBoxItem Content="13"/><ComboBoxItem Content="14"/><ComboBoxItem Content="16"/><ComboBoxItem Content="18"/><ComboBoxItem Content="20"/><ComboBoxItem Content="24"/><ComboBoxItem Content="28"/><ComboBoxItem Content="32"/>
-         </ComboBox>
-         <TextBlock Text="Цвет" Foreground="#9AA8B7" VerticalAlignment="Center" Margin="7,0,3,0"/>
-         <ComboBox x:Name="FontColorBox" Width="105" SelectionChanged="FontColorBox_SelectionChanged">
-          <ComboBoxItem Content="Белый" Tag="#FFFFFF"/><ComboBoxItem Content="Золотой" Tag="#E6C58D"/><ComboBoxItem Content="Красный" Tag="#FF7777"/><ComboBoxItem Content="Зелёный" Tag="#79D6A7"/><ComboBoxItem Content="Голубой" Tag="#76BDEB"/><ComboBoxItem Content="Серый" Tag="#AAB4C0"/>
-         </ComboBox>
-         <TextBlock Text="Выделение" Foreground="#9AA8B7" VerticalAlignment="Center" Margin="7,0,3,0"/>
-         <ComboBox x:Name="HighlightBox" Width="108" SelectionChanged="HighlightBox_SelectionChanged">
-          <ComboBoxItem Content="Нет" Tag="Transparent"/><ComboBoxItem Content="Жёлтый" Tag="#665A24"/><ComboBoxItem Content="Зелёный" Tag="#24563D"/><ComboBoxItem Content="Синий" Tag="#244C69"/><ComboBoxItem Content="Красный" Tag="#662F34"/>
-         </ComboBox>
-        </WrapPanel>
-       </DockPanel>
-       <StackPanel Grid.Row="4" Margin="0,0,0,8">
-        <TextBlock Text="Заметка / комментарий" Foreground="#9AA8B7" FontSize="11" Margin="4,0"/>
-        <TextBox x:Name="EditNote" TextChanged="LawEditor_TextChanged" MinHeight="34"/>
-       </StackPanel>
-       <StackPanel Grid.Row="5" Margin="0,0,0,7"><TextBlock Text="Теги через запятую" Foreground="#9AA8B7" FontSize="11" Margin="4,0"/><TextBox x:Name="EditTags" TextChanged="LawEditor_TextChanged"/></StackPanel>\n       <RichTextBox x:Name="EditRich" Grid.Row="6" Background="#0F151C" Foreground="#E8EDF3" BorderBrush="#303B48" BorderThickness="1"
-        Padding="12" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextChanged="LawEditor_TextChanged">
-        <FlowDocument PagePadding="0"><Paragraph/></FlowDocument>
-       </RichTextBox>
-       <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-        <Button Content="Копировать" Click="CopyLaw_Click"/>
-        <Button Content="Удалить" Foreground="#F09B9B" Click="DeleteLaw_Click"/>
-        <Button Content="Сохранить статью" Background="#B99660" Foreground="#11151A" Click="SaveLaw_Click"/>
-       </StackPanel>
-      </Grid>
-     </Border>
-    </Grid>
-   </TabItem>
-
-   <TabItem Header="Конструктор панелей">
-    <Grid Margin="12">
-     <Grid.ColumnDefinitions><ColumnDefinition Width="290"/><ColumnDefinition Width="*"/><ColumnDefinition Width="350"/></Grid.ColumnDefinitions>
-     <DockPanel>
-      <Button DockPanel.Dock="Bottom" Content="＋ Новая панель" Background="#B99660" Foreground="#11151A" Click="AddPanel_Click"/>
-      <ListBox x:Name="PanelList" Background="#10161D" Foreground="#E8EDF3" BorderBrush="#2D3947" DisplayMemberPath="Title" SelectionChanged="PanelList_SelectionChanged"/>
-     </DockPanel>
-     <ScrollViewer Grid.Column="1" Margin="13,0">
-      <StackPanel>
-       <TextBlock Text="Параметры панели" FontSize="21" FontWeight="SemiBold" Foreground="#E9D0A5" Margin="3,0,3,12"/>
-       <TextBlock Text="Название" Foreground="#9AA8B7" FontSize="11"/><TextBox x:Name="PanelTitle" TextChanged="PanelEditor_TextChanged"/>
-       <TextBlock Text="Содержимое" Foreground="#9AA8B7" FontSize="11"/><TextBox x:Name="PanelBody" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="260" VerticalScrollBarVisibility="Auto" TextChanged="PanelEditor_TextChanged"/>
-       <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-        <StackPanel><TextBlock Text="Ширина" Foreground="#9AA8B7" FontSize="11"/><TextBox x:Name="PanelWidth" TextChanged="PanelEditor_TextChanged"/></StackPanel>
-        <StackPanel Grid.Column="1"><TextBlock Text="Масштаб" Foreground="#9AA8B7" FontSize="11"/><TextBox x:Name="PanelScale" TextChanged="PanelEditor_TextChanged"/></StackPanel>
-       </Grid>
-       <CheckBox x:Name="PanelVisible" Content="Показывать в Overlay" Margin="5" Foreground="#E8EDF3" Checked="PanelEditor_OptionChanged" Unchecked="PanelEditor_OptionChanged"/>
-       <StackPanel Orientation="Horizontal"><Button Content="Сохранить панель" Background="#B99660" Foreground="#11151A" Click="SavePanel_Click"/><Button Content="Удалить" Foreground="#F09B9B" Click="DeletePanel_Click"/></StackPanel>
-      </StackPanel>
-     </ScrollViewer>
-     <Border Grid.Column="2" Background="#0B1016" BorderBrush="#34404E" BorderThickness="1" CornerRadius="12" Padding="14">
-      <DockPanel><TextBlock DockPanel.Dock="Top" Text="ПРЕДПРОСМОТР" Foreground="#D5B17A" FontWeight="Bold" Margin="0,0,0,12"/><ScrollViewer><TextBlock x:Name="PanelPreview" TextWrapping="Wrap" Foreground="#E8EDF3" FontSize="15"/></ScrollViewer></DockPanel>
-     </Border>
-    </Grid>
-   </TabItem>
-
-   <TabItem x:Name="ForumTab" Header="Форум / браузер">
-    <Grid Margin="10">
-     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
      <DockPanel Grid.Row="0" Margin="0,0,0,6">
       <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
        <Button Content="←" Width="38" Click="BrowserBack_Click"/><Button Content="→" Width="38" Click="BrowserForward_Click"/><Button Content="↻" Width="38" Click="BrowserReload_Click"/>
