@@ -105,9 +105,10 @@
          </ComboBox>
         </WrapPanel>
        </DockPanel>
-       <Border Grid.Row="4" Background="#10161D" BorderBrush="#303B48" BorderThickness="1" CornerRadius="9" Padding="9" Margin="3,0,3,8">
-        <TextBlock Text="Поддерживаются обычный текст и форматирование. Изменения автоматически сохраняются в базу, а Overlay обновляет памятку." Foreground="#95A3B2" FontSize="11"/>
-       </Border>
+       <StackPanel Grid.Row="4" Margin="0,0,0,8">
+        <TextBlock Text="Заметка / комментарий" Foreground="#9AA8B7" FontSize="11" Margin="4,0"/>
+        <TextBox x:Name="EditNote" TextChanged="LawEditor_TextChanged" MinHeight="34"/>
+       </StackPanel>
        <RichTextBox x:Name="EditRich" Grid.Row="5" Background="#0F151C" Foreground="#E8EDF3" BorderBrush="#303B48" BorderThickness="1"
         Padding="12" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextChanged="LawEditor_TextChanged">
         <FlowDocument PagePadding="0"><Paragraph/></FlowDocument>
