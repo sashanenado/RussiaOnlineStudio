@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 
 namespace RussiaOnlineStudio;
 
@@ -18,12 +19,30 @@ public partial class MainWindow : Window
     private LawRow? _selectedLaw;
     private PanelRow? _selectedPanel;
     private bool _loading;
+    private readonly DispatcherTimer _lawSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(750) };
+    private readonly DispatcherTimer _panelSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(750) };
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
     public MainWindow()
     {
         InitializeComponent();
+        _lawSaveTimer.Tick += (_, _) =>
+        {
+            _lawSaveTimer.Stop();
+            if (_loading || _selectedLaw is null) return;
+            ApplyLawEditor();
+            SaveLaws();
+            RefreshLawFilter();
+        };
+        _panelSaveTimer.Tick += (_, _) =>
+        {
+            _panelSaveTimer.Stop();
+            if (_loading || _selectedPanel is null) return;
+            ApplyPanelEditor();
+            SavePanels();
+            PanelList.Items.Refresh();
+        };
         _dataDir = FindDataDirectory();
         Directory.CreateDirectory(_dataDir);
         DataPath.Text = _dataDir;
@@ -157,7 +176,8 @@ public partial class MainWindow : Window
     private void SaveLaws()
     {
         SaveJson(LawsPath, _lawRoot);
-        StatusText.Text = "База законов сохранена с резервной копией • " + DateTime.Now.ToString("HH:mm:ss");
+        File.WriteAllText(Path.Combine(_dataDir, "laws_revision.txt"), DateTime.UtcNow.Ticks.ToString());
+        StatusText.Text = "База законов сохранена • Overlay обновляется автоматически • " + DateTime.Now.ToString("HH:mm:ss");
         UpdateStats();
     }
 
@@ -166,7 +186,8 @@ public partial class MainWindow : Window
         var arr = new JsonArray();
         foreach (var p in _panels) arr.Add(p.ToJson());
         SaveJson(PanelsPath, arr);
-        StatusText.Text = "Панели сохранены • " + DateTime.Now.ToString("HH:mm:ss");
+        File.WriteAllText(Path.Combine(_dataDir, "panels_revision.txt"), DateTime.UtcNow.Ticks.ToString());
+        StatusText.Text = "Панели сохранены • Overlay обновляется автоматически • " + DateTime.Now.ToString("HH:mm:ss");
         UpdateStats();
         UpdatePreview();
     }
@@ -223,6 +244,18 @@ public partial class MainWindow : Window
 
     private void CategoryBox_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (!_loading) RefreshLawFilter(); }
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e) { if (!_loading) RefreshLawFilter(); }
+    private void LawEditor_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_loading || _selectedLaw is null) return;
+        _lawSaveTimer.Stop();
+        _lawSaveTimer.Start();
+    }
+    private void PanelEditor_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_loading || _selectedPanel is null) return;
+        _panelSaveTimer.Stop();
+        _panelSaveTimer.Start();
+    }
     private void LawList_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (LawList.SelectedItem is LawRow row) FillLawEditor(row); }
     private void AddLaw_Click(object sender, RoutedEventArgs e)
     {
