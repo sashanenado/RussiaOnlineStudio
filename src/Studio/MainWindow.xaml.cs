@@ -381,7 +381,8 @@ public partial class MainWindow : Window
             EditCategory.SelectedItem = row?.Category ?? "УК";
             EditNumber.Text = row?.Number ?? "";
             EditTitle.Text = row?.Title ?? "";
-            EditNote.Text = row?.Note ?? "";\n            EditTags.Text = row?.Tags ?? "";
+            EditNote.Text = row?.Note ?? "";
+            EditTags.Text = row?.Tags ?? "";
             EditFavorite.IsChecked = row?.Favorite ?? false;
             var range = new TextRange(EditRich.Document.ContentStart, EditRich.Document.ContentEnd);
             range.Text = "";
