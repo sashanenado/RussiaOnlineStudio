@@ -1,0 +1,20 @@
+{
+  "legacy-order-detention": {
+    "X": 30,
+    "Y": 90,
+    "Width": 430,
+    "Height": 530
+  },
+  "legacy-miranda": {
+    "X": 480,
+    "Y": 90,
+    "Width": 390,
+    "Height": 250
+  },
+  "legacy-popular-articles": {
+    "X": 900,
+    "Y": 90,
+    "Width": 650,
+    "Height": 760
+  }
+}
