@@ -165,37 +165,56 @@ public partial class MainWindow : Window
             if (sourceNode is not JsonObject article) continue;
             var id = article["Id"]?.ToString()?.Trim() ?? "";
             var number = article["Number"]?.ToString()?.Trim() ?? "";
-            var index = -1;
+            JsonObject? existingArticle = null;
 
+            if (id.Length > 0)
+            {
+                foreach (var otherCategory in bases)
+                {
+                    if (otherCategory.Value is not JsonArray otherArray) continue;
+                    for (var i = 0; i < otherArray.Count; i++)
+                    {
+                        if (otherArray[i] is JsonObject existing &&
+                            string.Equals(existing["Id"]?.ToString()?.Trim(), id, StringComparison.OrdinalIgnoreCase))
+                        {
+                            existingArticle = existing;
+                            if (!string.Equals(otherCategory.Key, targetKey, StringComparison.OrdinalIgnoreCase))
+                                otherArray.RemoveAt(i);
+                            break;
+                        }
+                    }
+                    if (existingArticle is not null) break;
+                }
+            }
+
+            if (existingArticle is null && number.Length > 0)
+            {
+                for (var i = 0; i < target.Count; i++)
+                {
+                    if (target[i] is JsonObject existing &&
+                        string.Equals(existing["Number"]?.ToString()?.Trim(), number, StringComparison.OrdinalIgnoreCase))
+                    { existingArticle = existing; break; }
+                }
+            }
+
+            var merged = existingArticle is null
+                ? (JsonObject)article.DeepClone()
+                : (JsonObject)existingArticle.DeepClone();
+            foreach (var property in article)
+                merged[property.Key] = property.Value?.DeepClone();
+
+            var destinationIndex = -1;
             if (id.Length > 0)
             {
                 for (var i = 0; i < target.Count; i++)
                 {
                     if (target[i] is JsonObject existing &&
                         string.Equals(existing["Id"]?.ToString()?.Trim(), id, StringComparison.OrdinalIgnoreCase))
-                    { index = i; break; }
+                    { destinationIndex = i; break; }
                 }
             }
-
-            if (index < 0 && number.Length > 0)
-            {
-                for (var i = 0; i < target.Count; i++)
-                {
-                    if (target[i] is JsonObject existing &&
-                        string.Equals(existing["Number"]?.ToString()?.Trim(), number, StringComparison.OrdinalIgnoreCase))
-                    { index = i; break; }
-                }
-            }
-
-            if (index >= 0 && target[index] is JsonObject existingArticle)
-            {
-                var merged = (JsonObject)existingArticle.DeepClone();
-                foreach (var property in article)
-                    merged[property.Key] = property.Value?.DeepClone();
-                target[index] = merged;
-            }
-            else
-                target.Add(article.DeepClone());
+            if (destinationIndex >= 0) target[destinationIndex] = merged;
+            else target.Add(merged);
         }
     }
 
