@@ -119,6 +119,7 @@ public partial class MainWindow : Window
             if (!string.Equals(next, _activeProfile, StringComparison.OrdinalIgnoreCase))
             {
                 _activeProfile = next;
+                LoadGlobalFontMultiplier();
                 CloseAllWindows();
                 LoadPanelsAndLaws();
                 return;
