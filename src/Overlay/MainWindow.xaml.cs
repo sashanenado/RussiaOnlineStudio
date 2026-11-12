@@ -189,11 +189,35 @@ public partial class MainWindow : Window
 
             if (existingArticle is null && number.Length > 0)
             {
-                for (var i = 0; i < target.Count; i++)
+                var title = article["Title"]?.ToString()?.Trim() ?? "";
+                var matches = new List<(JsonArray Array, int Index, JsonObject Article)>();
+                foreach (var otherCategory in bases)
                 {
-                    if (target[i] is JsonObject existing &&
-                        string.Equals(existing["Number"]?.ToString()?.Trim(), number, StringComparison.OrdinalIgnoreCase))
-                    { existingArticle = existing; break; }
+                    if (otherCategory.Value is not JsonArray otherArray) continue;
+                    for (var i = 0; i < otherArray.Count; i++)
+                    {
+                        if (otherArray[i] is JsonObject current &&
+                            string.Equals(current["Number"]?.ToString()?.Trim(), number, StringComparison.OrdinalIgnoreCase) &&
+                            (title.Length == 0 || string.Equals(current["Title"]?.ToString()?.Trim(), title, StringComparison.Ordinal)))
+                            matches.Add((otherArray, i, current));
+                    }
+                }
+
+                if (matches.Count == 1)
+                {
+                    var match = matches[0];
+                    existingArticle = match.Article;
+                    if (!ReferenceEquals(match.Array, target))
+                        match.Array.RemoveAt(match.Index);
+                }
+                else if (matches.Count == 0)
+                {
+                    for (var i = 0; i < target.Count; i++)
+                    {
+                        if (target[i] is JsonObject existing &&
+                            string.Equals(existing["Number"]?.ToString()?.Trim(), number, StringComparison.OrdinalIgnoreCase))
+                        { existingArticle = existing; break; }
+                    }
                 }
             }
 
