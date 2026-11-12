@@ -13,6 +13,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using Microsoft.Win32;
 
 namespace RussiaOnlineStudio;
 
@@ -797,6 +798,57 @@ public partial class MainWindow : Window
             SaveJson(Path.Combine(ProfileFolder, "settings.json"), obj);
             StatusText.Text = "Настройки сохранены.";
         }, "Сохранение настроек");
+    }
+
+    private void ExportDatabase_Click(object sender, RoutedEventArgs e)
+    {
+        RunSafe(() =>
+        {
+            _lawSaveTimer.Stop();
+            if (_selectedLaw is not null) { ApplyLawEditor(); SaveLaws(createBackup: false); }
+            var dialog = new SaveFileDialog
+            {
+                Title = "Экспорт базы законов",
+                Filter = "Файл базы законов (*.json)|*.json",
+                FileName = $"RussiaOnline_Laws_{DateTime.Now:yyyyMMdd_HHmm}.json",
+                AddExtension = true,
+                DefaultExt = ".json"
+            };
+            if (dialog.ShowDialog(this) != true) return;
+            File.WriteAllText(dialog.FileName, _lawRoot.ToJsonString(JsonOptions), new UTF8Encoding(false));
+            StatusText.Text = "База законов экспортирована: " + dialog.FileName;
+        }, "Экспорт базы законов");
+    }
+
+    private void ImportDatabase_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Импорт базы законов",
+            Filter = "Файл базы законов (*.json)|*.json|Все файлы (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        RunSafe(() =>
+        {
+            _lawSaveTimer.Stop();
+            if (_selectedLaw is not null) ApplyLawEditor();
+            var imported = JsonNode.Parse(File.ReadAllText(dialog.FileName)) as JsonObject
+                ?? throw new InvalidDataException("JSON должен содержать объект верхнего уровня.");
+            if (imported["Bases"] is not JsonObject)
+                throw new InvalidDataException("В файле не найден объект Bases. Исходная база не изменена.");
+
+            var merged = MergeLawDatabases(_lawRoot, imported);
+            if (merged["Bases"] is not JsonObject mergedBases)
+                throw new InvalidDataException("Не удалось прочитать разделы базы.");
+            _lawRoot = merged;
+            _bases = mergedBases;
+            LoadLawRows();
+            SaveLaws(createBackup: true);
+            RefreshLawFilter();
+            StatusText.Text = $"Импорт завершён. Сейчас в базе {_laws.Count} статей.";
+        }, "Импорт базы законов");
     }
 
     private void OpenData_Click(object sender, RoutedEventArgs e)
