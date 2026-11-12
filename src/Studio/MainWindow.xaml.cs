@@ -1198,6 +1198,7 @@ public sealed class LawRow
     public string Text { get; set; }
     public string RichTextRtf { get; set; }
     public string Note { get; set; }
+    public string Tags { get; set; }
     public bool Favorite { get; set; }
     public bool InMemo { get; set; }
     public string Display => $"{Number}  {Title}";
@@ -1216,6 +1217,9 @@ public sealed class LawRow
         Text = raw["Text"]?.ToString() ?? "";
         RichTextRtf = raw["RichTextRtf"]?.ToString() ?? "";
         Note = raw["Note"]?.ToString() ?? "";
+        Tags = raw["Tags"] is JsonArray tagArray
+            ? string.Join(", ", tagArray.Select(tag => tag?.ToString()).Where(tag => !string.IsNullOrWhiteSpace(tag)))
+            : raw["Tags"]?.ToString() ?? "";
         Favorite = bool.TryParse(raw["Favorite"]?.ToString(), out var fav) && fav;
         InMemo = !bool.TryParse(raw["InMemo"]?.ToString(), out var inMemo) || inMemo;
     }
