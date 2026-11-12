@@ -369,7 +369,14 @@ public partial class MainWindow : Window
             .ToList();
         var old = _selectedLaw;
         LawList.ItemsSource = rows;
-        if (old is not null && rows.Contains(old)) LawList.SelectedItem = old;
+        if (old is not null && rows.Contains(old))
+            LawList.SelectedItem = old;
+        else if (rows.Count == 0 && NormalizeCategory(selected) == "ПГО")
+            EditorHint.Text = "В исходном архиве найдено название «Правила государственных организаций» и количество 118 пунктов, но текст самих правил не передан. Импортировать их можно после получения текста из форума во встроенном браузере.";
+        else if (rows.Count == 0 && selected != "Все категории")
+            EditorHint.Text = $"Раздел «{selected}» пока пуст. Добавь статью или импортируй JSON.";
+        else if (selected == "Все категории")
+            EditorHint.Text = "Выбери статью или создай новую.";
     }
 
     private void SaveJson(string path, JsonNode node, bool createBackup = true)
