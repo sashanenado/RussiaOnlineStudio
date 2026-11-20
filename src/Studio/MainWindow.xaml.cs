@@ -664,12 +664,33 @@ public partial class MainWindow : Window
         catch { }
     }
 
-    // The left selector is only a library filter. It must never silently change
-    // the category of the record currently open in the editor.
+    // The left selector filters the library. If the active record is filtered out,
+    // commit it before clearing the editor; the chosen filter then becomes the
+    // destination for the next new article.
     private void CategoryBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_loading) return;
+
+        var selectedFilter = CategoryBox.SelectedItem?.ToString() ?? "Все категории";
         RefreshLawFilter();
+
+        if (_selectedLaw is not null && !ReferenceEquals(LawList.SelectedItem, _selectedLaw))
+        {
+            _lawSaveTimer.Stop();
+            RunSafe(() =>
+            {
+                ApplyLawEditor();
+                SaveLaws(createBackup: false);
+            }, "Сохранение статьи перед сменой фильтра");
+            FillLawEditor(null);
+        }
+
+        if (_selectedLaw is null && selectedFilter != "Все категории")
+        {
+            _loading = true;
+            EditCategory.SelectedItem = selectedFilter;
+            _loading = false;
+        }
     }
 
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e) => RefreshLawFilter();
