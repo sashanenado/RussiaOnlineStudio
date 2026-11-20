@@ -221,13 +221,26 @@ public sealed class PanelWindow : Window
                 };
 
                 var temp = _positionsPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
-                File.WriteAllText(temp, positions.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-                File.Move(temp, _positionsPath, true);
+                try
+                {
+                    using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                    using (var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+                    {
+                        writer.Write(positions.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+                        writer.Flush();
+                        stream.Flush(flushToDisk: true);
+                    }
 
-                _panel.X = Left;
-                _panel.Y = Top;
-                _panel.Width = Width;
-                _panel.Height = Height;
+                    File.Move(temp, _positionsPath, true);
+                    _panel.X = Left;
+                    _panel.Y = Top;
+                    _panel.Width = Width;
+                    _panel.Height = Height;
+                }
+                finally
+                {
+                    try { if (File.Exists(temp)) File.Delete(temp); } catch { }
+                }
             }
             catch { }
         }
