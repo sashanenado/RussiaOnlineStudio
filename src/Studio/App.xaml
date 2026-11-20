@@ -5,8 +5,19 @@
   <SolidColorBrush x:Key="Line" Color="#2A3542"/>
   <SolidColorBrush x:Key="Gold" Color="#B99660"/>
   <SolidColorBrush x:Key="Text" Color="#E8EDF3"/>
+  <SolidColorBrush x:Key="MutedText" Color="#91A0B0"/>
+  <SolidColorBrush x:Key="Focus" Color="#D7B47A"/>
+  <Style TargetType="{x:Type Window}">
+   <Setter Property="FontFamily" Value="Segoe UI"/>
+   <Setter Property="FontSize" Value="13"/>
+   <Setter Property="TextOptions.TextFormattingMode" Value="Display"/>
+   <Setter Property="TextOptions.TextRenderingMode" Value="ClearType"/>
+   <Setter Property="SnapsToDevicePixels" Value="True"/>
+   <Setter Property="UseLayoutRounding" Value="True"/>
+  </Style>
   <Style TargetType="{x:Type Button}">
-   <Setter Property="Padding" Value="13,8"/><Setter Property="Margin" Value="3"/>
+   <Setter Property="Padding" Value="14,9"/><Setter Property="Margin" Value="3"/>
+   <Setter Property="MinHeight" Value="36"/>
    <Setter Property="Foreground" Value="{StaticResource Text}"/><Setter Property="Background" Value="#202B37"/>
    <Setter Property="BorderBrush" Value="#364453"/><Setter Property="BorderThickness" Value="1"/>
    <Setter Property="Cursor" Value="Hand"/>
@@ -17,6 +28,7 @@
     <ControlTemplate.Triggers>
      <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#C9A66B"/><Setter TargetName="Bd" Property="Background" Value="#2B3744"/></Trigger>
      <Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Background" Value="#3A3023"/></Trigger>
+     <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Focus}"/><Setter TargetName="Bd" Property="BorderThickness" Value="2"/></Trigger>
      <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Bd" Property="Opacity" Value=".45"/></Trigger>
     </ControlTemplate.Triggers>
    </ControlTemplate></Setter.Value></Setter>
@@ -28,7 +40,7 @@
    <Setter Property="BorderThickness" Value="1"/>
    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="{x:Type TextBox}">
     <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="7" Padding="{TemplateBinding Padding}">
-     <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"/>
+     <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Stretch"/>
     </Border>
     <ControlTemplate.Triggers>
      <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#C9A66B"/></Trigger>
@@ -40,7 +52,11 @@
    <Setter Property="Padding" Value="9,6"/><Setter Property="Margin" Value="3"/>
    <Setter Property="Foreground" Value="#E8EDF3"/><Setter Property="Background" Value="#1A232D"/>
    <Setter Property="BorderBrush" Value="#394756"/><Setter Property="BorderThickness" Value="1"/>
-   <Setter Property="MinHeight" Value="34"/>
+   <Setter Property="MinHeight" Value="36"/>
+   <Style.Triggers>
+    <Trigger Property="IsKeyboardFocused" Value="True"><Setter Property="BorderBrush" Value="{StaticResource Focus}"/></Trigger>
+    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value=".5"/></Trigger>
+   </Style.Triggers>
   </Style>
   <Style TargetType="{x:Type ComboBoxItem}">
    <Setter Property="Foreground" Value="#E8EDF3"/><Setter Property="Background" Value="#1A232D"/>
