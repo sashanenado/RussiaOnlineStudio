@@ -462,10 +462,14 @@ public partial class MainWindow : Window
         try
         {
             using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true }))
             {
-                node.WriteTo(writer);
-                writer.Flush();
+                using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true }))
+                {
+                    node.WriteTo(writer);
+                    writer.Flush();
+                }
+                // Flush file contents before the atomic replacement.
+                stream.Flush(flushToDisk: true);
             }
 
             if (createBackup && File.Exists(path))
@@ -481,12 +485,31 @@ public partial class MainWindow : Window
         }
     }
 
+    private static void WriteTextAtomically(string path, string value)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            using (var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+            {
+                writer.Write(value);
+                writer.Flush();
+                stream.Flush(flushToDisk: true);
+            }
+            File.Move(temp, path, true);
+        }
+        finally
+        {
+            try { if (File.Exists(temp)) File.Delete(temp); } catch { }
+        }
+    }
+
     private void WriteSignal(string fileName)
     {
         var path = Path.Combine(_dataDir, fileName);
-        var temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        File.WriteAllText(temp, DateTime.UtcNow.Ticks.ToString(CultureInfo.InvariantCulture));
-        File.Move(temp, path, true);
+        WriteTextAtomically(path, DateTime.UtcNow.Ticks.ToString(CultureInfo.InvariantCulture));
     }
 
     private void SaveLaws(bool createBackup = true)
@@ -641,17 +664,12 @@ public partial class MainWindow : Window
         catch { }
     }
 
+    // The left selector is only a library filter. It must never silently change
+    // the category of the record currently open in the editor.
     private void CategoryBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_loading) return;
         RefreshLawFilter();
-        var category = CategoryBox.SelectedItem?.ToString();
-        if (!string.IsNullOrWhiteSpace(category) && category != "Все категории")
-        {
-            _loading = true;
-            EditCategory.SelectedItem = category;
-            _loading = false;
-        }
     }
 
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e) => RefreshLawFilter();
@@ -669,18 +687,29 @@ public partial class MainWindow : Window
     private void LawEditor_TextChanged(object sender, TextChangedEventArgs e) => ScheduleLawSave();
     private void EditCategory_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_loading) return;
-        var category = EditCategory.SelectedItem?.ToString();
-        if (!string.IsNullOrWhiteSpace(category) &&
-            CategoryBox.SelectedItem?.ToString() is string currentFilter &&
-            currentFilter != "Все категории")
+        if (_loading || _selectedLaw is null) return;
+
+        var requestedCategory = NormalizeCategory(EditCategory.SelectedItem?.ToString());
+        if (string.IsNullOrWhiteSpace(requestedCategory) ||
+            requestedCategory.Equals(NormalizeCategory(_selectedLaw.Category), StringComparison.OrdinalIgnoreCase))
+            return;
+
+        // Move first, save, and only then update the list filter. Refreshing the filter
+        // before the model has moved makes the selected row disappear from the view.
+        _lawSaveTimer.Stop();
+        RunSafe(() =>
         {
+            ApplyLawEditor();
+            SaveLaws(createBackup: false);
+
             _loading = true;
-            CategoryBox.SelectedItem = category;
+            CategoryBox.SelectedItem = requestedCategory;
             _loading = false;
+
             RefreshLawFilter();
-        }
-        ScheduleLawSave();
+            LawList.SelectedItem = _selectedLaw;
+            EditorHint.Text = $"Статья перемещена в раздел «{requestedCategory}».";
+        }, "Перемещение статьи между категориями");
     }
     private void LawEditor_OptionChanged(object sender, RoutedEventArgs e) => ScheduleLawSave();
 
@@ -688,11 +717,20 @@ public partial class MainWindow : Window
     {
         RunSafe(() =>
         {
-            var selectedFilter = CategoryBox.SelectedItem?.ToString();
-            var chosenCategory = selectedFilter is not null && selectedFilter != "Все категории"
-                ? selectedFilter
-                : EditCategory.SelectedItem?.ToString() ?? "УК";
-            chosenCategory = NormalizeCategory(chosenCategory);
+            // Flush the previous editor before replacing its selection. Otherwise a
+            // pending 700 ms autosave can be stopped by FillLawEditor and be lost.
+            _lawSaveTimer.Stop();
+            if (_selectedLaw is not null)
+            {
+                ApplyLawEditor();
+                SaveLaws(createBackup: false);
+            }
+
+            // The editor category is the destination for a new record. The left
+            // category selector is deliberately independent and is only a filter.
+            var chosenCategory = NormalizeCategory(EditCategory.SelectedItem?.ToString() ?? "УК");
+            if (string.IsNullOrWhiteSpace(chosenCategory)) chosenCategory = "УК";
+
             var raw = new JsonObject
             {
                 ["Id"] = Guid.NewGuid().ToString("N"),
@@ -704,17 +742,21 @@ public partial class MainWindow : Window
                 ["Favorite"] = false,
                 ["InMemo"] = true
             };
-            GetCategoryArray(chosenCategory).Add(raw);
+
+            var targetArray = GetCategoryArray(chosenCategory);
+            targetArray.Add(raw);
             var storage = FindStorageCategory(chosenCategory);
             var row = new LawRow(storage, raw);
             _laws.Add(row);
 
             _loading = true;
             EditCategory.SelectedItem = chosenCategory;
-            if (selectedFilter is null || selectedFilter == "Все категории")
-                CategoryBox.SelectedItem = chosenCategory;
+            CategoryBox.SelectedItem = chosenCategory;
             _loading = false;
 
+            // Persist the new row immediately, even if the user closes the app
+            // before typing its number or title.
+            SaveLaws(createBackup: false);
             RefreshLawFilter();
             LawList.SelectedItem = row;
             FillLawEditor(row);
@@ -914,8 +956,7 @@ public partial class MainWindow : Window
             if (_selectedLaw is not null) { ApplyLawEditor(); SaveLaws(); }
             if (_selectedPanel is not null) { ApplyPanelEditor(); SavePanels(); }
             var nextProfile = ActiveProfileKey;
-            WriteSignal("active_profile.txt");
-            File.WriteAllText(Path.Combine(_dataDir, "active_profile.txt"), nextProfile);
+            WriteTextAtomically(Path.Combine(_dataDir, "active_profile.txt"), nextProfile);
             _loadedProfileKey = nextProfile;
             _selectedLaw = null;
             _selectedPanel = null;
