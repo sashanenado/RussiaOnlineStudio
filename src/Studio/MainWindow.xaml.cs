@@ -53,6 +53,7 @@ public partial class MainWindow : Window
             {
                 ApplyLawEditor();
                 await SaveLawsAsync(createBackup: false);
+                StatusText.Text = $"База сохранена • {_laws.Count} статей • Overlay обновит памятку";
                 RefreshLawFilter();
             }
             catch (Exception ex)
@@ -550,19 +551,18 @@ public partial class MainWindow : Window
         var path = LawsPath;
         var snapshot = (JsonObject)_lawRoot.DeepClone();
 
-        await _lawSaveGate.WaitAsync();
+        await _lawSaveGate.WaitAsync().ConfigureAwait(false);
         try
         {
-            await Task.Run(() => SaveJson(path, snapshot, createBackup));
-            await Task.Run(() => WriteSignal("laws_revision.txt"));
+            // Do not capture the WPF UI context: synchronous SaveLaws callers may
+            // wait for this gate during profile switches or window shutdown.
+            await Task.Run(() => SaveJson(path, snapshot, createBackup)).ConfigureAwait(false);
+            await Task.Run(() => WriteSignal("laws_revision.txt")).ConfigureAwait(false);
         }
         finally
         {
             _lawSaveGate.Release();
         }
-
-        StatusText.Text = $"База сохранена • {_laws.Count} статей • Overlay обновит памятку";
-        UpdateStats();
     }
 
     private void SavePanels(bool createBackup = true)
