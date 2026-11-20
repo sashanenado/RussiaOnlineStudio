@@ -146,9 +146,9 @@ RussiaOnlineStudio — настольное WPF-приложение для ра
 - **Run #69 — PASS**, source commit `b470a99f2a85d7f1fdfcbd398c2c4df1cc98531a`: [GitHub Actions](https://github.com/sashanenado/RussiaOnlineStudio/actions/runs/44688891847).
 - Успешно выполнены: checkout@v7, setup-dotnet@v6, XML/XAML и JSON validation, проверка базовых категорий, 24 расширенных файла / 2741 единица каталога, публикация `Studio.exe`, публикация `Overlay.exe`, сборка portable ZIP и загрузка артефакта.
 - Артефакт: `RussiaOnlineStudio-Overlay-win-x64` (стандартный срок хранения workflow — 14 дней). Это артефакт коммита `b470a99`, **не** самого последнего исходного коммита.
-- **Run #70 — IN PROGRESS на момент последней проверки**, source commit `91e1f54ccf80bd3bd217cbb3609ee3461f9fb373`: [GitHub Actions](https://github.com/sashanenado/RussiaOnlineStudio/actions/runs/44688986753). Проверки XML/JSON и каталога прошли; выполнялась публикация Studio.
+- **Run #70 — PASS**, source commit `91e1f54ccf80bd3bd217cbb3609ee3461f9fb373`: [GitHub Actions](https://github.com/sashanenado/RussiaOnlineStudio/actions/runs/44688986753). XML/JSON validation, проверка каталога, публикация Studio, публикация Overlay, сборка portable ZIP и загрузка артефакта завершились успешно.
 - **Run #71 — CANCELLED**, source commit `7966529e6355b578558efdbf66e19165ca910319`: [GitHub Actions](https://github.com/sashanenado/RussiaOnlineStudio/actions/runs/44689122830). Это не успешная и не завершённая проверка.
-- **Run #72 — PENDING на момент последней проверки**, source commit `7d37b5b67ad076045bdbcf4f58f9421437392359`: [GitHub Actions](https://github.com/sashanenado/RussiaOnlineStudio/actions/runs/44689158100). Этот run должен проверить и новую схему фонового автосохранения.
+- **Run #72 — IN PROGRESS на последней проверке**, source commit `7d37b5b67ad076045bdbcf4f58f9421437392359`: [GitHub Actions](https://github.com/sashanenado/RussiaOnlineStudio/actions/runs/44689158100). Checkout и setup-dotnet прошли; выполнялась проверка XML/JSON. Финальный результат публикации ещё неизвестен.
 - Следовательно, сборка подтверждена для `b470a99`, но **самый свежий исходный commit ещё не подтверждён завершённой сборкой**. Не выдавать старый ZIP за актуальный релиз.
 
 ### Что важно знать о производительности и сохранности
