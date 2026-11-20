@@ -140,6 +140,8 @@ RussiaOnlineStudio — настольное WPF-приложение для ра
   - `b470a99` — CI теперь запускается на `main` и `development`, проверяет XML и JSON, собирает оба EXE; версии Actions обновлены, сборки двух веток разделены concurrency group.
   - `91e1f54` — при смене фильтра текущая запись сначала сохраняется; если она исключается из списка, редактор очищается, а выбранный фильтр становится категорией для следующей новой записи.
   - `7966529`, `7d37b5b` — файловая часть debounce-автосохранения вынесена из UI-потока; данные сериализуются из отдельного snapshot; общий SemaphoreSlim предотвращает гонки фонового и синхронного сохранения.
+  - `ff4422c` — введены монотонные ревизии snapshot, чтобы устаревший autosave не мог стать последней записью при разном порядке ожидателей.
+  - `9e5fe4b`, `0dfd695` — добавлены Mutex-защита от двух копий Studio/Overlay на одну папку Data и журналы критических исключений.
 
 ### Build log — 2026-11-20 (время GitHub Actions указано в UTC)
 
@@ -149,10 +151,10 @@ RussiaOnlineStudio — настольное WPF-приложение для ра
 - **Run #70 — PASS**, source commit `91e1f54ccf80bd3bd217cbb3609ee3461f9fb373`: [GitHub Actions](https://github.com/sashanenado/RussiaOnlineStudio/actions/runs/44688986753). XML/JSON validation, проверка каталога, публикация Studio, публикация Overlay, сборка portable ZIP и загрузка артефакта завершились успешно.
 - **Run #71 — CANCELLED**, source commit `7966529e6355b578558efdbf66e19165ca910319`: [GitHub Actions](https://github.com/sashanenado/RussiaOnlineStudio/actions/runs/44689122830). Это не успешная и не завершённая проверка.
 - **Run #72 — PASS**, source commit `7d37b5b67ad076045bdbcf4f58f9421437392359`: [GitHub Actions](https://github.com/sashanenado/RussiaOnlineStudio/actions/runs/44689158100). XML/JSON validation, проверка каталога, публикация Studio, публикация Overlay, portable ZIP и загрузка артефакта завершились успешно.
-- **Run #73 — IN PROGRESS на последней проверке**, source commit `ff4422c751c8a4febdafdbbdf890af329f97f22e`: [GitHub Actions](https://github.com/sashanenado/RussiaOnlineStudio/actions/runs/44689379174). Проверяет защиту от записи устаревшего snapshot.
+- **Run #73 — PASS**, source commit `ff4422c751c8a4febdafdbbdf890af329f97f22e`: [GitHub Actions](https://github.com/sashanenado/RussiaOnlineStudio/actions/runs/44689379174). Все проверки XML/JSON, каталога, обе публикации, portable ZIP и upload прошли успешно.
 - **Run #74 — CANCELLED**, source commit `9e5fe4bfda30aaa6f6673ecf5b0ccec6fe5d886b`: [GitHub Actions](https://github.com/sashanenado/RussiaOnlineStudio/actions/runs/44689469131). Не считать проверкой.
-- **Run #75 — PENDING на последней проверке**, source commit `0dfd695f9941cec0defce1b813d77bd1d1ba046b`: [GitHub Actions](https://github.com/sashanenado/RussiaOnlineStudio/actions/runs/44689473883). Это текущая версия с защитой от повторного запуска Studio/Overlay и журналированием критических ошибок.
-- Следовательно, сборка подтверждена для `b470a99`, `91e1f54` и `7d37b5b`; **последний commit `0dfd695` ещё не подтверждён завершённой сборкой**. Не выдавать артефакт более старого SHA за актуальный релиз.
+- **Run #75 — IN PROGRESS на последней проверке**, source commit `0dfd695f9941cec0defce1b813d77bd1d1ba046b`: [GitHub Actions](https://github.com/sashanenado/RussiaOnlineStudio/actions/runs/44689473883). Checkout выполнялся; последующие проверки и публикации ещё pending.
+- Следовательно, сборка подтверждена для `b470a99`, `91e1f54`, `7d37b5b` и `ff4422c`; **последний commit `0dfd695` ещё не подтверждён завершённой сборкой**. Не выдавать артефакт более старого SHA за актуальный релиз.
 
 ### Что важно знать о производительности и сохранности
 
@@ -168,7 +170,7 @@ CI проверяет компиляцию и структуру файлов, �
 
 ### Следующий конкретный шаг
 
-1. Получить финальные статусы run #73 и run #75, проверить job steps и build logs. Если последний build упал — исправить первопричину и повторить; после каждой новой попытки обновить этот файл.
+1. Получить финальный статус run #75, проверить все job steps и build logs. Если последний build упал — исправить первопричину и повторить; после каждой новой попытки обновить этот файл.
 2. При успешном run #75 скачать/проверить артефакт именно этого SHA. До этого не предлагать пользователю распространять старый артефакт #69–#72.
 3. После сборки провести сценарный тест УК/КоАП/ПК и профилей на Windows. Отдельно оценить сохранение merged 3.8 MB каталога в profile overrides, не менять схему без проверки всех ID и совместимости Overlay.
 4. Не сливать `development` в `main` без согласования с пользователем.
