@@ -32,6 +32,7 @@ public partial class MainWindow : Window
     private Task? _forumInitTask;
     private readonly DispatcherTimer _lawSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(700) };
     private readonly SemaphoreSlim _lawSaveGate = new(1, 1);
+    private long _lawSaveRevision;
     private readonly DispatcherTimer _panelSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(700) };
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
@@ -526,14 +527,20 @@ public partial class MainWindow : Window
     {
         var path = LawsPath;
         var snapshot = (JsonObject)_lawRoot.DeepClone();
+        var revision = Interlocked.Increment(ref _lawSaveRevision);
 
         // Serialize all writes to the active profile. A background autosave may
         // already be finishing while the user clicks Save, switches profiles or exits.
         _lawSaveGate.Wait();
         try
         {
-            SaveJson(path, snapshot, createBackup);
-            WriteSignal("laws_revision.txt");
+            // A newer snapshot may have reached the gate first. Never let an older
+            // snapshot overwrite a newer save just because its waiter ran later.
+            if (revision == Volatile.Read(ref _lawSaveRevision))
+            {
+                SaveJson(path, snapshot, createBackup);
+                WriteSignal("laws_revision.txt");
+            }
         }
         finally
         {
@@ -550,14 +557,22 @@ public partial class MainWindow : Window
         // be mutated while the background thread serializes them.
         var path = LawsPath;
         var snapshot = (JsonObject)_lawRoot.DeepClone();
+        var revision = Interlocked.Increment(ref _lawSaveRevision);
 
         await _lawSaveGate.WaitAsync().ConfigureAwait(false);
         try
         {
             // Do not capture the WPF UI context: synchronous SaveLaws callers may
             // wait for this gate during profile switches or window shutdown.
+            if (revision != Volatile.Read(ref _lawSaveRevision))
+                return;
+
             await Task.Run(() => SaveJson(path, snapshot, createBackup)).ConfigureAwait(false);
-            await Task.Run(() => WriteSignal("laws_revision.txt")).ConfigureAwait(false);
+
+            // If edits arrived while the file was being written, the newer queued
+            // snapshot will perform the final write and publish the refresh signal.
+            if (revision == Volatile.Read(ref _lawSaveRevision))
+                await Task.Run(() => WriteSignal("laws_revision.txt")).ConfigureAwait(false);
         }
         finally
         {
