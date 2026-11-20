@@ -1,12 +1,13 @@
 name: Build Windows Studio and Overlay
 
 concurrency:
-  group: russia-online-windows-build
-  cancel-in-progress: true
+  # Keep main and development builds isolated; never cancel a publish already running.
+  group: russia-online-windows-build-${{ github.ref }}
+  cancel-in-progress: false
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, development]
     paths:
       - 'src/**'
       - 'Data/**'
@@ -15,10 +16,26 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      - name: Validate project XML and all JSON files
+        shell: pwsh
+        run: |
+          $xmlFiles = @(Get-ChildItem src -Recurse -File -Include *.xaml,*.csproj)
+          foreach ($file in $xmlFiles) {
+            try { [xml](Get-Content $file.FullName -Raw) | Out-Null }
+            catch { throw "Invalid XML in $($file.FullName): $($_.Exception.Message)" }
+          }
+
+          $jsonFiles = @(Get-ChildItem Data -Recurse -File -Filter *.json)
+          foreach ($file in $jsonFiles) {
+            try { Get-Content $file.FullName -Raw | ConvertFrom-Json -ErrorAction Stop | Out-Null }
+            catch { throw "Invalid JSON in $($file.FullName): $($_.Exception.Message)" }
+          }
+          Write-Host "Validated $($xmlFiles.Count) XAML/project XML files and $($jsonFiles.Count) JSON files."
+
       - name: Validate law database before publishing
         shell: pwsh
         run: |
@@ -79,7 +96,11 @@ jobs:
           7. Папка сессии форума находится в LocalAppData текущего пользователя Windows и не входит в переносимую Data.
           8. Для встроенного браузера требуется Microsoft Edge WebView2 Runtime.
           "@ | Set-Content -Encoding UTF8 dist/RussiaOnline/НАЧНИ_ОТСЮДА.txt
+          if (-not (Test-Path dist/RussiaOnline/Studio.exe)) { throw "Studio.exe missing from portable package." }
+          if (-not (Test-Path dist/RussiaOnline/Overlay.exe)) { throw "Overlay.exe missing from portable package." }
+          if (-not (Test-Path dist/RussiaOnline/Data/laws_database.json)) { throw "Law database missing from portable package." }
           Compress-Archive -Path dist/RussiaOnline/* -DestinationPath dist/RussiaOnline_Studio_Overlay_win-x64.zip -Force
+          Get-FileHash dist/RussiaOnline_Studio_Overlay_win-x64.zip -Algorithm SHA256 | Format-List
       - uses: actions/upload-artifact@v4
         with:
           name: RussiaOnlineStudio-Overlay-win-x64
