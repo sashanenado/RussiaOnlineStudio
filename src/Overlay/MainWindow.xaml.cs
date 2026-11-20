@@ -23,6 +23,7 @@ public partial class MainWindow : Window
     private HwndSource? _source;
     private FileSystemWatcher? _watcher;
     private bool _moveMode, _panelsChanged, _lawsChanged, _profileChanged, _settingsChanged;
+    private bool _fullRefreshRequired;
     private double _globalFontMultiplier = 1.0;
     private string _activeProfile = "main";
     private PanelWindow? _lawMemoWindow;
@@ -70,11 +71,14 @@ public partial class MainWindow : Window
             {
                 IncludeSubdirectories = true,
                 Filter = "*",
-                NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size
+                NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
+                InternalBufferSize = 16 * 1024
             };
             _watcher.Changed += OnDataChanged;
             _watcher.Created += OnDataChanged;
+            _watcher.Deleted += OnDataChanged;
             _watcher.Renamed += OnDataRenamed;
+            _watcher.Error += OnWatcherError;
             _watcher.EnableRaisingEvents = true;
         }
         catch (Exception ex) { Status.Text = "Автообновление файлов недоступно: " + ex.Message; }
@@ -83,26 +87,45 @@ public partial class MainWindow : Window
     private void OnDataChanged(object sender, FileSystemEventArgs e) => QueueRefresh(e.FullPath);
     private void OnDataRenamed(object sender, RenamedEventArgs e) => QueueRefresh(e.FullPath);
 
-    private void QueueRefresh(string path)
+    private void OnWatcherError(object sender, ErrorEventArgs e)
     {
-        var name = Path.GetFileName(path);
-        if (name.Equals("active_profile.txt", StringComparison.OrdinalIgnoreCase))
-            _profileChanged = true;
-        else if (name.Equals("laws_database.json", StringComparison.OrdinalIgnoreCase))
-            _lawsChanged = true;
-        else if (name.Equals("panels.json", StringComparison.OrdinalIgnoreCase) ||
-                 name.Equals("deleted_panels.json", StringComparison.OrdinalIgnoreCase))
-            _panelsChanged = true;
-        else if (name.Equals("settings.json", StringComparison.OrdinalIgnoreCase) &&
-                 string.Equals(Path.GetDirectoryName(path), ProfileFolder, StringComparison.OrdinalIgnoreCase))
-            _settingsChanged = true;
-        else
-            return;
-
+        // FileSystemWatcher can overflow its native buffer. Its events are hints, not
+        // a durable event log, so recover by re-reading the current on-disk snapshot.
         try
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
+                _fullRefreshRequired = true;
+                _refreshTimer.Stop();
+                _refreshTimer.Start();
+                Status.Text = "Синхронизация восстанавливается после пропуска файлового события...";
+            }), DispatcherPriority.Background);
+        }
+        catch { }
+    }
+
+    private void QueueRefresh(string path)
+    {
+        var name = Path.GetFileName(path);
+        try
+        {
+            // All refresh flags are owned by the UI thread. FileSystemWatcher callbacks
+            // arrive on worker threads and may be raised more than once per write.
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (name.Equals("active_profile.txt", StringComparison.OrdinalIgnoreCase))
+                    _profileChanged = true;
+                else if (name.Equals("laws_database.json", StringComparison.OrdinalIgnoreCase))
+                    _lawsChanged = true;
+                else if (name.Equals("panels.json", StringComparison.OrdinalIgnoreCase) ||
+                         name.Equals("deleted_panels.json", StringComparison.OrdinalIgnoreCase))
+                    _panelsChanged = true;
+                else if (name.Equals("settings.json", StringComparison.OrdinalIgnoreCase) &&
+                         string.Equals(Path.GetDirectoryName(path), ProfileFolder, StringComparison.OrdinalIgnoreCase))
+                    _settingsChanged = true;
+                else
+                    return;
+
                 _refreshTimer.Stop();
                 _refreshTimer.Start();
             }), DispatcherPriority.Background);
@@ -112,6 +135,18 @@ public partial class MainWindow : Window
 
     private void ProcessPendingRefresh()
     {
+        if (_fullRefreshRequired)
+        {
+            _fullRefreshRequired = false;
+            _profileChanged = _settingsChanged = _panelsChanged = _lawsChanged = false;
+            _activeProfile = ReadActiveProfile();
+            LoadGlobalFontMultiplier();
+            CloseAllWindows();
+            LoadPanelsAndLaws();
+            Status.Text = "Синхронизация восстановлена: данные перечитаны с диска.";
+            return;
+        }
+
         if (_profileChanged)
         {
             _profileChanged = false;
