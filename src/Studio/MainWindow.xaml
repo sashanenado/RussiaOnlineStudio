@@ -2,16 +2,16 @@
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
  xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
- Title="Russia Online Studio" Width="1120" Height="730" MinWidth="900" MinHeight="580"
+ Title="Russia Online Studio" Width="1200" Height="800" MinWidth="960" MinHeight="620"
  WindowStartupLocation="CenterScreen" Background="#0D1117" Foreground="#E8EDF3"
  Opacity="0" Loaded="Window_Loaded" PreviewKeyDown="Window_PreviewKeyDown">
  <Grid x:Name="RootLayout" Margin="16">
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
   <Border Grid.Row="0" Background="#151C25" BorderBrush="#2A3542" BorderThickness="1" CornerRadius="14" Padding="15" Margin="0,0,0,12">
-   <DockPanel LastChildFill="True">
+   <DockPanel LastChildFill="False">
     <StackPanel DockPanel.Dock="Left">
-     <TextBlock Text="RUSSIA ONLINE / STUDIO" FontSize="19" FontWeight="Bold" Foreground="#D5B17A"/>
-     <TextBlock Text="Локальная мастерская базы знаний и игровых памяток" Foreground="#93A1B2" FontSize="12"/>
+     <TextBlock Text="RUSSIA ONLINE / STUDIO" FontSize="20" FontWeight="Bold" Foreground="#E2C18C"/>
+     <TextBlock Text="Рабочее пространство · база знаний и игровые памятки" Foreground="#9EACBC" FontSize="12" Margin="0,3,0,0"/>
     </StackPanel>
     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
      <TextBlock Text="ПРОФИЛЬ" Foreground="#93A1B2" VerticalAlignment="Center" Margin="10,0,5,0" FontSize="11"/>
@@ -51,12 +51,27 @@
        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
        <RowDefinition Height="*"/><RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
-      <ComboBox x:Name="CategoryBox" Grid.Row="0" SelectionChanged="CategoryBox_SelectionChanged"/>
+      <ComboBox x:Name="CategoryBox" Grid.Row="0" ToolTip="Фильтр списка слева. Не меняет категорию открытой статьи." SelectionChanged="CategoryBox_SelectionChanged"/>
       <TextBox x:Name="SearchBox" Grid.Row="1" ToolTip="Поиск по номеру, названию, тексту и тегам" TextChanged="SearchBox_TextChanged"/>
       <CheckBox x:Name="OnlyFavorites" Grid.Row="2" Content="Только избранное" Foreground="#DCC18E" Checked="FilterOptions_Changed" Unchecked="FilterOptions_Changed"/>
       <ListBox x:Name="LawList" Grid.Row="3" Background="#10161D" Foreground="#E8EDF3" BorderBrush="#2D3947"
-       SelectionChanged="LawList_SelectionChanged" DisplayMemberPath="Display" Margin="3"/>
-      <Button Grid.Row="4" Content="＋ Добавить в выбранную категорию" Background="#B99660" Foreground="#11151A" Click="AddLaw_Click"/>
+       SelectionChanged="LawList_SelectionChanged" Margin="3" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+       <ListBox.ItemTemplate>
+        <DataTemplate>
+         <StackPanel Margin="2,1">
+          <TextBlock Text="{Binding Title}" Foreground="#E5EAF0" FontSize="12" FontWeight="SemiBold"
+           TextTrimming="CharacterEllipsis" MaxHeight="20"/>
+          <DockPanel Margin="0,3,0,0">
+           <TextBlock Text="{Binding Number}" Foreground="#E1C18E" FontSize="11" FontWeight="Bold" DockPanel.Dock="Left"/>
+           <TextBlock Text="{Binding Category}" Foreground="#8292A3" FontSize="10" Margin="8,0,0,0"/>
+          </DockPanel>
+         </StackPanel>
+        </DataTemplate>
+       </ListBox.ItemTemplate>
+      </ListBox>
+      <Button Grid.Row="4" Content="＋ Добавить статью" Background="#C6A16B" Foreground="#11151A"
+       ToolTip="Новая запись будет создана в категории, выбранной справа в редакторе."
+       Click="AddLaw_Click"/>
      </Grid>
 
      <Border Grid.Column="1" Background="#151C25" BorderBrush="#2A3542" BorderThickness="1" CornerRadius="12" Padding="16" Margin="14,0,0,0">
@@ -84,7 +99,8 @@
         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions>
         <StackPanel Grid.Column="0">
          <TextBlock Text="Категория" Foreground="#9AA8B7" FontSize="11" Margin="4,0"/>
-         <ComboBox x:Name="EditCategory" SelectionChanged="EditCategory_SelectionChanged"/>
+         <ComboBox x:Name="EditCategory" ToolTip="Категория текущей статьи. Для новой записи выбери здесь нужный раздел."
+          SelectionChanged="EditCategory_SelectionChanged"/>
         </StackPanel>
         <StackPanel Grid.Column="1">
          <TextBlock Text="Номер" Foreground="#9AA8B7" FontSize="11" Margin="4,0"/>
@@ -226,7 +242,7 @@
   </TabControl>
 
   <DockPanel Grid.Row="2" Margin="4,8,4,0">
-   <TextBlock x:Name="StatusText" Text="Готово" Foreground="#91A0B0" FontSize="11"/>
+   <TextBlock x:Name="StatusText" Text="Готово" Foreground="#A6B2BF" FontSize="11"/>
    <TextBlock DockPanel.Dock="Right" Text="RUSSIA ONLINE • LOCAL DATA" Foreground="#596777" FontSize="10"/>
   </DockPanel>
  </Grid>
