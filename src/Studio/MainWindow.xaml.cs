@@ -980,8 +980,8 @@ public partial class MainWindow : Window
         var requestedScale = Math.Clamp(requestedPercent / 100.0, .8, 1.6);
 
         // Keep the scaled workspace inside the current Windows work area.
-        const double baseWidth = 1120;
-        const double baseHeight = 730;
+        const double baseWidth = 1200;
+        const double baseHeight = 800;
         var workArea = SystemParameters.WorkArea;
         var maxByWidth = Math.Max(.8, (workArea.Width - 40) / baseWidth);
         var maxByHeight = Math.Max(.8, (workArea.Height - 70) / baseHeight);
@@ -990,8 +990,8 @@ public partial class MainWindow : Window
         RootLayout.LayoutTransform = new ScaleTransform(appliedScale, appliedScale);
         Width = baseWidth * appliedScale;
         Height = baseHeight * appliedScale;
-        MinWidth = 900 * appliedScale;
-        MinHeight = 580 * appliedScale;
+        MinWidth = 960 * appliedScale;
+        MinHeight = 620 * appliedScale;
     }
 
     private void SaveSettings_Click(object sender, RoutedEventArgs e)
