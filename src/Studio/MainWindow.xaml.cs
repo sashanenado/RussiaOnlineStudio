@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private bool _forumInitialized;
     private Task? _forumInitTask;
     private readonly DispatcherTimer _lawSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(700) };
+    private readonly SemaphoreSlim _lawSaveGate = new(1, 1);
     private readonly DispatcherTimer _panelSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(700) };
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
@@ -44,16 +45,24 @@ public partial class MainWindow : Window
         Directory.CreateDirectory(_dataDir);
         DataPath.Text = _dataDir;
 
-        _lawSaveTimer.Tick += (_, _) =>
+        _lawSaveTimer.Tick += async (_, _) =>
         {
             _lawSaveTimer.Stop();
             if (_loading || _selectedLaw is null) return;
-            RunSafe(() =>
+            try
             {
                 ApplyLawEditor();
-                SaveLaws(createBackup: false);
+                await SaveLawsAsync(createBackup: false);
                 RefreshLawFilter();
-            }, "Автосохранение статьи");
+            }
+            catch (Exception ex)
+            {
+                LogError(ex, "Автосохранение статьи");
+                StatusText.Text = "Не удалось сохранить статью. Исходные данные не перезаписаны; см. Data\\logs\\errors.log.";
+                MessageBox.Show(this,
+                    "Автосохранение не выполнено. Проверь доступ к папке Data и файл журнала.\n\n" + ex.Message,
+                    "Russia Online Studio", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         };
         _panelSaveTimer.Tick += (_, _) =>
         {
@@ -514,8 +523,44 @@ public partial class MainWindow : Window
 
     private void SaveLaws(bool createBackup = true)
     {
-        SaveJson(LawsPath, _lawRoot, createBackup);
-        WriteSignal("laws_revision.txt");
+        var path = LawsPath;
+        var snapshot = (JsonObject)_lawRoot.DeepClone();
+
+        // Serialize all writes to the active profile. A background autosave may
+        // already be finishing while the user clicks Save, switches profiles or exits.
+        _lawSaveGate.Wait();
+        try
+        {
+            SaveJson(path, snapshot, createBackup);
+            WriteSignal("laws_revision.txt");
+        }
+        finally
+        {
+            _lawSaveGate.Release();
+        }
+
+        StatusText.Text = $"База сохранена • {_laws.Count} статей • Overlay обновит памятку";
+        UpdateStats();
+    }
+
+    private async Task SaveLawsAsync(bool createBackup = false)
+    {
+        // Capture a detached snapshot on the UI thread; JsonNode instances must not
+        // be mutated while the background thread serializes them.
+        var path = LawsPath;
+        var snapshot = (JsonObject)_lawRoot.DeepClone();
+
+        await _lawSaveGate.WaitAsync();
+        try
+        {
+            await Task.Run(() => SaveJson(path, snapshot, createBackup));
+            await Task.Run(() => WriteSignal("laws_revision.txt"));
+        }
+        finally
+        {
+            _lawSaveGate.Release();
+        }
+
         StatusText.Text = $"База сохранена • {_laws.Count} статей • Overlay обновит памятку";
         UpdateStats();
     }
