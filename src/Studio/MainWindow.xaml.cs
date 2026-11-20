@@ -164,8 +164,6 @@ public partial class MainWindow : Window
                 }
             }
 
-            // Keep prior non-Arbat base entries available, but never mix them into active Arbat laws.
-            ArchiveUnverifiedLegacyArticles(profileDb);
             _lawRoot = MergeLawDatabases(bundled, profileDb);
             _bases = _lawRoot["Bases"] as JsonObject ?? new JsonObject();
             _lawRoot["Bases"] = _bases;
@@ -202,10 +200,6 @@ public partial class MainWindow : Window
         if (parsed?["Bases"] is not JsonObject)
             throw new InvalidDataException("Data/laws_database.json не содержит объект Bases.");
 
-        // The original root database predates the Arbat-specific source files. Preserve its
-        // unmatched records in an explicit archive instead of silently merging them into RP law.
-        ArchiveUnverifiedLegacyArticles(parsed);
-
         var extendedDirectory = Path.Combine(_dataDir, "ExtendedLaws");
         if (Directory.Exists(extendedDirectory))
         {
@@ -226,71 +220,6 @@ public partial class MainWindow : Window
             }
         }
         return parsed;
-    }
-
-    private static void ArchiveUnverifiedLegacyArticles(JsonObject database)
-    {
-        if (database["Bases"] is not JsonObject bases) return;
-
-        // These three categories came from the old root database. Only records with explicit
-        // Arbat source IDs are eligible to remain in the active УК/КоАП categories. The old
-        // "ПК" category has no matching current Arbat category in the source index.
-        var legacyCategories = new[]
-        {
-            (Name: "КОАП", Archive: "Архив • КоАП (непроверено)", KeepArbatIds: true),
-            (Name: "ПК", Archive: "Архив • ПК (непроверено)", KeepArbatIds: false),
-            (Name: "ук", Archive: "Архив • УК (непроверено)", KeepArbatIds: true)
-        };
-
-        foreach (var legacy in legacyCategories)
-        {
-            var sourceKey = bases.Select(pair => pair.Key)
-                .FirstOrDefault(key => NormalizeCategory(key).Equals(
-                    NormalizeCategory(legacy.Name), StringComparison.OrdinalIgnoreCase));
-            if (sourceKey is null || bases[sourceKey] is not JsonArray sourceArray) continue;
-
-            var active = new JsonArray();
-            var archive = bases[legacy.Archive] as JsonArray ?? new JsonArray();
-
-            foreach (var node in sourceArray)
-            {
-                if (node is not JsonObject article)
-                {
-                    // Preserve malformed/unknown nodes too; normal row loading will ignore them.
-                    archive.Add(node?.DeepClone());
-                    continue;
-                }
-
-                var id = article["Id"]?.ToString()?.Trim() ?? "";
-                var sourceUid = article["SourceUID"]?.ToString()?.Trim() ?? "";
-                var hasArbatSource = id.StartsWith("arbat:", StringComparison.OrdinalIgnoreCase) ||
-                                     sourceUid.StartsWith("arbat:", StringComparison.OrdinalIgnoreCase);
-
-                if (legacy.KeepArbatIds && hasArbatSource)
-                {
-                    active.Add(article.DeepClone());
-                    continue;
-                }
-
-                var archivedArticle = (JsonObject)article.DeepClone();
-                archivedArticle["LegacySourceCategory"] ??= sourceKey;
-                archivedArticle["SourceStatus"] ??= "Не подтверждено в каталоге Арбатского сервера";
-
-                var number = archivedArticle["Number"]?.ToString()?.Trim() ?? "";
-                var title = archivedArticle["Title"]?.ToString()?.Trim() ?? "";
-                var text = archivedArticle["Text"]?.ToString() ?? "";
-                var duplicate = archive.OfType<JsonObject>().Any(existing =>
-                    string.Equals(existing["Number"]?.ToString()?.Trim() ?? "", number, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(existing["Title"]?.ToString()?.Trim() ?? "", title, StringComparison.Ordinal) &&
-                    string.Equals(existing["Text"]?.ToString() ?? "", text, StringComparison.Ordinal));
-
-                if (!duplicate) archive.Add(archivedArticle);
-            }
-
-            bases.Remove(sourceKey);
-            if (active.Count > 0) bases[sourceKey] = active;
-            if (archive.Count > 0) bases[legacy.Archive] = archive;
-        }
     }
 
     private static JsonObject MergeLawDatabases(JsonObject baseDb, JsonObject profileDb)

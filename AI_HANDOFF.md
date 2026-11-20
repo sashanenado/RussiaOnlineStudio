@@ -264,3 +264,23 @@ CI проверяет компиляцию и структуру файлов, �
 ### NEXT PROMPT — ARBAT SOURCE AUDIT
 
 Продолжай RussiaOnlineStudio. Сначала прочитай AI_HANDOFF.md целиком и проверь branch/HEAD/CI. Пользователь указал каталог https://russiaonline.wiki/wiki/laws?server=%D0%90%D1%80%D0%B1%D0%B0%D1%82%D1%81%D0%BA%D0%B8%D0%B9 как полный список законов Арбатского сервера. Проверь изменения в `ArchiveUnverifiedLegacyArticles`: компиляцию, загрузку root DB и старого profile DB, сохранность записей, отсутствие старых записей в активных УК/КоАП/УПК. Не трогай `main`. Следующий этап — полная таблица соответствия 27 карточек Арбатского каталога и 24 файлов `Data/ExtendedLaws`, выявить недостающие документы/статьи/устаревшие копии, сохранить URL/даты/статусы источников и не переписывать нормы без точного текста. Проверять упоминания МВД по контексту: игровые законы о полиции и МВД могут быть легитимными нормами РО. После сборки обновить AI_HANDOFF.md с точным CI-результатом и ссылкой на run.
+
+
+## Build log — 2026-11-20 08:00 UTC
+
+- Branch: `development`
+- Source commit: `4a252debf0e3adb0b0593b3aae51c72bc9740ce8`
+- Build result: **PASS**
+- GitHub Actions: [Run #76](https://github.com/sashanenado/RussiaOnlineStudio/actions/runs/44698925215)
+- Artifact: `RussiaOnlineStudio-Overlay-win-x64`, artifact ID `14612112181`, 119,648,285 bytes, SHA-256 `b6e25a98e3a26436e7dcab4884c4a3a1c919fe3a344d1b14cd07e27b4668cca5`; expires 2026-12-04.
+- Checks: project XML/XAML and JSON validation PASS; root database validation PASS; all 24 ExtendedLaws JSON groups and stable IDs PASS; Studio publish PASS; Overlay publish PASS; portable ZIP packaging PASS.
+- Changes in source commit: added `ArchiveUnverifiedLegacyArticles` to split untagged legacy rows from active Arbat УК/КоАП categories and to move the legacy ПК category into visibly marked archive categories. Applied to both bundled and profile databases. All archived text is retained; only rows with `arbat:` source identifiers remain active in the old УК/КоАП category.
+- Additional audit: each of the three base categories in the tracked `Data/laws_database.json` had zero `arbat:` IDs (КОАП 51/51, ПК 56/56, ук 111/111). The new startup classification therefore archives all 218 tracked legacy rows from those categories. Profile copies are classified by the same rule, while Arbat-tagged records remain active.
+- Website cross-check: the user-provided Arbat catalog lists 27 materials. The current repository has 24 ExtendedLaws files; preliminary comparison found separate GIBDD documents in the catalog (disciplinary charter, internal charter and OSB regulation) that do not have corresponding standalone JSON files yet. The repository also contains `business.json`, for which a matching current catalog page has not yet been confirmed. Do not claim the entire catalog has already been imported.
+- Known issues/risks: successful CI proves compilation and packaging only. No interactive Windows runtime test has yet been performed for first launch, an existing profile migration, edit/save/reopen, Studio→Overlay synchronization, or overlay display over GTA 5. Archive categories have not yet been visually reviewed in Studio. The 27 catalog documents and article-level freshness still need a full crosswalk.
+- Main branch: unchanged.
+- Next step: test migration with a copy of an existing profile; build a full document crosswalk against the Arbat Wiki index; import only exact text with server/source/date metadata; verify PGO source text separately (current repository has only metadata for 118 points).
+
+### NEXT PROMPT — VERIFY MIGRATION AND COMPLETE ARBAT CATALOG
+
+Продолжай RussiaOnlineStudio. Прочитай AI_HANDOFF.md целиком, проверь HEAD и CI. Последняя сборка #76 PASS на source commit `4a252debf0e3adb0b0593b3aae51c72bc9740ce8`; artifact ID `14612112181`. Пользователь указал полный каталог: https://russiaonline.wiki/wiki/laws?server=%D0%90%D1%80%D0%B1%D0%B0%D1%82%D1%81%D0%BA%D0%B8%D0%B9. Проверь migration `ArchiveUnverifiedLegacyArticles` на копиях старых профилей: не теряются ли пользовательские правки, не дублируются ли записи, попадают ли безарбатские записи только в архив, остаются ли Arbat-ID в активных УК/КоАП. Затем сделай таблицу соответствия всех документов Арбатского каталога файлам `Data/ExtendedLaws`. Особо проверь три найденных документа ГИБДД (дисциплинарный устав, внутренний устав, положение об ОСБ), дополнительный `business.json` и полноту КоАП/УК/УПК. Не создавай текст закона по описанию или числу статей: используй полный источник дословно, сохраняя ссылку, дату обновления и статус. Не смешивай сервера и не трогай `main`. После следующей сборки обнови handoff с результатом.
