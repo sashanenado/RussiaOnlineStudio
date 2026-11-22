@@ -717,10 +717,10 @@ public partial class MainWindow : Window
             BorderBrush = new SolidColorBrush(Color.FromRgb(45, 57, 71)),
             BorderThickness = new Thickness(1),
             ItemTemplate = (DataTemplate)FindResource("LawRowTemplate"),
-            SelectionChanged = LawList_SelectionChanged,
             Tag = state,
             Margin = new Thickness(2)
         };
+        list.SelectionChanged += LawList_SelectionChanged;
         ScrollViewer.SetHorizontalScrollBarVisibility(list, ScrollBarVisibility.Disabled);
         ScrollViewer.SetVerticalScrollBarVisibility(list, ScrollBarVisibility.Auto);
         list.GroupStyle.Add(new GroupStyle { HeaderTemplate = (DataTemplate)FindResource("LawChapterGroupTemplate") });
