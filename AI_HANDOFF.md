@@ -90,3 +90,29 @@
 - Commit: 7f9c989fb8efdc13feaf60f4dfe67847a3c43b93.
 - Последний опрос: workflow всё ещё `in_progress`; шаги валидации XML/XAML/JSON, law database и всех 27 Arbat документов завершились `success`; `Publish Studio` выполнялся, Publish Overlay / package / artifact ещё ожидали.
 - Итог сборки и Artifact ID пока не известны. Следующий чат должен повторно проверить run #84 и добавить сюда окончательное заключение и artifact ID/ссылку, если сборка завершится успешно.
+
+
+## 10.11. Новый цикл по NEXT PROMPT: VERIFY ROOT NAVIGATION AND IMPROVE DISCOVERABILITY — 22.11.2026
+
+### Текущий запрос и границы работ
+
+Продолжить строго по предыдущему NEXT PROMPT: проверить CI для верхнеуровневых вкладок законов, записать итог и артефакт в handoff; затем оценить необходимость улучшения обнаруживаемости полосы вкладок. Сохранять 27 отдельных вкладок. Работать только в development; main не менять.
+
+### Проверенный CI
+
+- Workflow: Build Windows Studio and Overlay.
+- Run #84: https://github.com/sashanenado/RussiaOnlineStudio/actions/runs/45003722683
+- Статус на 22.11.2026: completed / success (PASS).
+- Commit, который собран: 7f9c989fb8efdc13feaf60f4dfe67847a3c43b93.
+- Этот build успешно прошёл валидацию XML/XAML/JSON, law database и 27 документов Arbat, а также полный workflow (публикация Studio/Overlay, portable package и upload artifact). Artifact ID и имя архива ещё нужно получить через GitHub Actions API и записать ниже.
+- Важно: CI PASS подтверждает сборку и упаковку, но не запуск WPF UI на реальном Windows ПК и не работу Overlay поверх GTA 5.
+
+### Проверка обнаруживаемости
+
+- Последняя реализация размещает четыре системных раздела первыми, затем 27 вкладок документов и архив. Это было исправлено кодовым commit 7f9c989fb8efdc13feaf60f4dfe67847a3c43b93.
+- Новых жалоб пользователя на видимость вкладок в текущем сообщении нет: он попросил прочитать NEXT PROMPT. Не начинать лишнюю UI-переделку без подтверждённой проблемы. При следующем сообщении пользователя о неудобстве вкладок — добавить более явную навигацию/контролы прокрутки и разделитель системных разделов и документов, сохранив самостоятельные root tabs.
+- Обязательная ручная проверка на Windows остаётся: видимость основных вкладок, прокрутка к КоАП/УК/УПК/ФСО/территориям, корректность содержимого каждой вкладки, поиск/избранное/главы, сохранение после переключения, profiles, archive, panels, forum, Overlay.
+
+### NEXT PROMPT — DOWNLOAD AND VERIFY THE SUCCESSFUL BUILD; THEN WAIT FOR UI FEEDBACK
+
+Продолжай RussiaOnlineStudio. Сначала прочитай AI_HANDOFF.md и обнови его первым изменением нового цикла. Работай только в development, main не трогай. Run #84 уже PASS: https://github.com/sashanenado/RussiaOnlineStudio/actions/runs/45003722683, commit 7f9c989fb8efdc13feaf60f4dfe67847a3c43b93. Получи artifact ID/имя/размер ZIP через GitHub Actions API, запиши точные сведения в AI_HANDOFF.md и предоставь пользователю проверенную ссылку на артефакт или download action. Не утверждай, что приложение проверено в Windows runtime: пока требуется ручной тест. После того как пользователь оценит интерфейс, при наличии замечаний улучшай discoverability полосы вкладок, сохраняя 27 отдельных вкладок и четыре системных раздела впереди. main не менять.
