@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
@@ -25,8 +26,13 @@ public partial class MainWindow : Window
     private JsonObject _bases = new();
     private readonly ObservableCollection<LawRow> _laws = new();
     private readonly ObservableCollection<PanelRow> _panels = new();
+    private readonly ObservableCollection<LawCatalogDocument> _catalogDocuments = new();
+    private readonly Dictionary<string, LawDocumentTabState> _lawDocumentTabs = new(StringComparer.OrdinalIgnoreCase);
+    private LawDocumentTabState? _archiveTabState;
+    private LawDocumentTabState? _activeLawTab;
     private LawRow? _selectedLaw;
     private PanelRow? _selectedPanel;
+    private bool _suppressLawSelection;
     private bool _loading;
     private string _loadedProfileKey = "main";
     private bool _forumInitialized;
@@ -77,7 +83,6 @@ public partial class MainWindow : Window
             }, "Автосохранение панели");
         };
 
-        LawList.ItemsSource = _laws;
         PanelList.ItemsSource = _panels;
         _loading = true;
         _loadedProfileKey = ReadActiveProfileKey();
@@ -129,6 +134,8 @@ public partial class MainWindow : Window
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
+        MainTabs.ApplyTemplate();
+        UpdateMainTabsLayout();
         var fade = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(300))
         {
             EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
@@ -442,6 +449,8 @@ public partial class MainWindow : Window
     private void LoadLawRows()
     {
         _laws.Clear();
+        _activeLawTab = null;
+        MainTabs.SelectedItem = LibraryTab;
 
         var orderedCategories = new List<string>();
         if (_lawRoot["Catalog"] is JsonArray catalogue)
@@ -459,10 +468,10 @@ public partial class MainWindow : Window
         var additionalCategories = _bases.Select(pair => pair.Key)
             .Where(category => !orderedCategories.Contains(category, StringComparer.OrdinalIgnoreCase))
             .OrderBy(category => category.StartsWith("Архив", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
-            .ThenBy(category => category, StringComparer.OrdinalIgnoreCase);
-        orderedCategories.AddRange(additionalCategories);
+            .ThenBy(category => category, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-        foreach (var category in orderedCategories)
+        foreach (var category in orderedCategories.Concat(additionalCategories))
         {
             if (_bases[category] is not JsonArray array) continue;
             foreach (var node in array)
@@ -474,11 +483,15 @@ public partial class MainWindow : Window
                 }
         }
 
-        var categories = orderedCategories.Select(NormalizeCategory).ToList();
-        CategoryBox.ItemsSource = new[] { "Все категории" }.Concat(categories).ToList();
+        var categories = orderedCategories.Concat(additionalCategories)
+            .Select(NormalizeCategory).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         EditCategory.ItemsSource = categories;
-        CategoryBox.SelectedItem = "Все категории";
-        EditCategory.SelectedItem = categories.FirstOrDefault();
+        EditCategory.SelectedItem = categories.FirstOrDefault(category =>
+            !category.StartsWith("Архив", StringComparison.OrdinalIgnoreCase)) ?? categories.FirstOrDefault();
+
+        BuildLawDocumentTabs();
+        RefreshLawFilter();
+        UpdateMainTabsLayout();
     }
 
     private void LoadPanels()
@@ -542,26 +555,343 @@ public partial class MainWindow : Window
         UpdatePreview();
     }
 
+    private void BuildLawDocumentTabs()
+    {
+        foreach (var state in _lawDocumentTabs.Values)
+            MainTabs.Items.Remove(state.Tab);
+        if (_archiveTabState is not null)
+            MainTabs.Items.Remove(_archiveTabState.Tab);
+
+        _lawDocumentTabs.Clear();
+        _archiveTabState = null;
+        _catalogDocuments.Clear();
+
+        var index = Math.Max(0, MainTabs.Items.IndexOf(LibraryTab) + 1);
+        if (_lawRoot["Catalog"] is JsonArray catalogue)
+        {
+            foreach (var item in catalogue.OfType<JsonObject>().OrderBy(item =>
+                         int.TryParse(item["Order"]?.ToString(), out var order) ? order : 999))
+            {
+                var category = item["Category"]?.ToString()?.Trim();
+                if (string.IsNullOrWhiteSpace(category) || _bases[category] is not JsonArray articles)
+                    continue;
+
+                var document = new LawCatalogDocument
+                {
+                    Order = int.TryParse(item["Order"]?.ToString(), out var order) ? order : 999,
+                    Category = category,
+                    DocumentType = item["DocumentType"]?.ToString() ?? "Документ",
+                    File = item["File"]?.ToString() ?? "",
+                    SourceUrl = item["SourceUrl"]?.ToString() ?? "",
+                    SourceUpdated = item["SourceUpdated"]?.ToString() ?? "",
+                    ArticleCount = articles.Count,
+                    CatalogArticleCount = int.TryParse(item["CatalogArticleCount"]?.ToString(), out var sourceCount)
+                        ? sourceCount : articles.Count
+                };
+                _catalogDocuments.Add(document);
+
+                var state = new LawDocumentTabState
+                {
+                    Category = category,
+                    Document = document,
+                    IsArchive = false
+                };
+                state.Tab = new TabItem
+                {
+                    Header = BuildShortTabHeader(document),
+                    ToolTip = document.Category,
+                    Tag = state,
+                    Content = BuildLawTabContent(state)
+                };
+                _lawDocumentTabs[category] = state;
+                MainTabs.Items.Insert(index++, state.Tab);
+            }
+        }
+
+        _archiveTabState = new LawDocumentTabState
+        {
+            Category = "Архив",
+            IsArchive = true
+        };
+        _archiveTabState.Tab = new TabItem
+        {
+            Header = "Архив",
+            ToolTip = "Старые и неподтверждённые записи. Не являются действующей редакцией документов Арбатского сервера.",
+            Tag = _archiveTabState,
+            Content = BuildLawTabContent(_archiveTabState)
+        };
+        MainTabs.Items.Insert(index, _archiveTabState.Tab);
+        LawCatalogTiles.ItemsSource = _catalogDocuments;
+        CatalogSearchBox.Text = "";
+        LibrarySummaryText.Text = $"В каталоге {_catalogDocuments.Count} документов Арбатского сервера. Выбери закон, чтобы открыть его отдельную вкладку.";
+    }
+
+    private static string BuildShortTabHeader(LawCatalogDocument document)
+    {
+        return document.File.ToLowerInvariant() switch
+        {
+            "criminal-code.json" => "УК",
+            "constitution.json" => "Конституция",
+            "criminal-procedure.json" => "УПК",
+            "koap.json" => "КоАП",
+            "labor.json" => "Трудовой кодекс",
+            "ethics.json" => "Этика",
+            "court.json" => "Суды",
+            "gibdd-disciplinary.json" => "Дисциплина ГИБДД",
+            "gibdd-charter.json" => "Устав ГИБДД",
+            "government-law.json" => "Правительство",
+            "traffic.json" => "ПДД",
+            "police.json" => "Полиция",
+            "prosecutor.json" => "Прокуратура",
+            "security-service.json" => "ФСБ",
+            "emergency.json" => "ЧП / ВП",
+            "territories.json" => "Территории",
+            "weapons.json" => "Оружие",
+            "fso.json" => "ФСО",
+            "documents.json" => "Документы",
+            "armed-forces.json" => "ВС РО",
+            "business.json" => "Бизнес",
+            "investigative-committee.json" => "СК",
+            "advocacy.json" => "Адвокатура",
+            "media.json" => "СМИ",
+            "immunity.json" => "Неприкосновенность",
+            "medical.json" => "Медицина",
+            "internal-security.json" => "ОСБ ГИБДД",
+            _ => document.Category
+        };
+    }
+
+    private UIElement BuildLawTabContent(LawDocumentTabState state)
+    {
+        var grid = new Grid { Margin = new Thickness(12), Background = new SolidColorBrush(Color.FromRgb(17, 24, 32)) };
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var heading = new TextBlock
+        {
+            Text = state.IsArchive ? "СТАРЫЕ И НЕПРОВЕРЕННЫЕ ЗАПИСИ" : state.Category,
+            FontSize = 15,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(233, 208, 165)),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(4, 0, 4, 5),
+            ToolTip = state.Category
+        };
+        Grid.SetRow(heading, 0);
+        grid.Children.Add(heading);
+
+        var filter = new DockPanel { Margin = new Thickness(3, 5, 3, 8), LastChildFill = true };
+        var favorites = new CheckBox
+        {
+            Content = "★ Избранное",
+            Foreground = new SolidColorBrush(Color.FromRgb(220, 193, 142)),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(10, 0, 4, 0),
+            Tag = state
+        };
+        favorites.Checked += DocumentFilter_Changed;
+        favorites.Unchecked += DocumentFilter_Changed;
+        state.OnlyFavorites = favorites;
+        DockPanel.SetDock(favorites, Dock.Right);
+        filter.Children.Add(favorites);
+
+        var search = new TextBox
+        {
+            ToolTip = state.IsArchive ? "Поиск по архивным записям" : $"Поиск только в документе: {state.Category}",
+            VerticalContentAlignment = VerticalAlignment.Center,
+            MinWidth = 130,
+            Tag = state
+        };
+        search.TextChanged += DocumentSearch_TextChanged;
+        state.Search = search;
+        filter.Children.Add(search);
+        Grid.SetRow(filter, 1);
+        grid.Children.Add(filter);
+
+        var list = new ListBox
+        {
+            Background = new SolidColorBrush(Color.FromRgb(16, 22, 29)),
+            Foreground = new SolidColorBrush(Color.FromRgb(232, 237, 243)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(45, 57, 71)),
+            BorderThickness = new Thickness(1),
+            ItemTemplate = (DataTemplate)FindResource("LawRowTemplate"),
+            SelectionChanged = LawList_SelectionChanged,
+            Tag = state,
+            Margin = new Thickness(2)
+        };
+        ScrollViewer.SetHorizontalScrollBarVisibility(list, ScrollBarVisibility.Disabled);
+        ScrollViewer.SetVerticalScrollBarVisibility(list, ScrollBarVisibility.Auto);
+        list.GroupStyle.Add(new GroupStyle { HeaderTemplate = (DataTemplate)FindResource("LawChapterGroupTemplate") });
+        state.List = list;
+        Grid.SetRow(list, 2);
+        grid.Children.Add(list);
+
+        var footer = new DockPanel { Margin = new Thickness(3, 7, 3, 0) };
+        var count = new TextBlock
+        {
+            Text = "0 записей",
+            Foreground = new SolidColorBrush(Color.FromRgb(143, 156, 171)),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        state.Count = count;
+        footer.Children.Add(count);
+        if (!state.IsArchive)
+        {
+            var add = new Button
+            {
+                Content = "＋ Добавить статью",
+                Background = new SolidColorBrush(Color.FromRgb(198, 161, 107)),
+                Foreground = new SolidColorBrush(Color.FromRgb(17, 21, 26)),
+                Padding = new Thickness(10, 5, 10, 5),
+                ToolTip = "Добавить пользовательскую статью в этот документ",
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+            add.Click += AddLaw_Click;
+            DockPanel.SetDock(add, Dock.Right);
+            footer.Children.Add(add);
+        }
+        Grid.SetRow(footer, 3);
+        grid.Children.Add(footer);
+        return grid;
+    }
+
     private void RefreshLawFilter()
     {
-        var selected = CategoryBox.SelectedItem?.ToString() ?? "Все категории";
-        var query = SearchBox.Text?.Trim() ?? "";
-        var onlyFavorites = OnlyFavorites.IsChecked == true;
-        var rows = _laws.Where(x =>
-            (selected == "Все категории" || NormalizeCategory(x.Category).Equals(NormalizeCategory(selected), StringComparison.OrdinalIgnoreCase)) &&
-            (!onlyFavorites || x.Favorite) &&
-            (query.Length == 0 || string.Join(" ", x.Number, x.Title, x.Chapter, x.Text, x.Tags, x.Note, x.Raw["SourceRef"]?.ToString(), x.Raw["SourceLawTitle"]?.ToString()).Contains(query, StringComparison.OrdinalIgnoreCase)))
-            .ToList();
-        var old = _selectedLaw;
-        LawList.ItemsSource = rows;
-        if (old is not null && rows.Contains(old))
-            LawList.SelectedItem = old;
-        else if (rows.Count == 0 && NormalizeCategory(selected) == "ПГО")
-            EditorHint.Text = "В исходном архиве найдено название «Правила государственных организаций» и количество 118 пунктов, но текст самих правил не передан. Импортировать их можно после получения текста из форума во встроенном браузере.";
-        else if (rows.Count == 0 && selected != "Все категории")
-            EditorHint.Text = $"Раздел «{selected}» пока пуст. Добавь статью или импортируй JSON.";
-        else if (selected == "Все категории")
-            EditorHint.Text = "Выбери статью или создай новую.";
+        foreach (var state in _lawDocumentTabs.Values)
+            RefreshLawTab(state);
+        if (_archiveTabState is not null)
+            RefreshLawTab(_archiveTabState);
+    }
+
+    private void RefreshLawTab(LawDocumentTabState state)
+    {
+        if (state.List is null) return;
+        var selected = state.List.SelectedItem as LawRow;
+        var query = state.Search?.Text?.Trim() ?? "";
+        var onlyFavorites = state.OnlyFavorites?.IsChecked == true;
+
+        var rows = _laws.Where(row =>
+        {
+            var inDocument = state.IsArchive
+                ? row.Category.StartsWith("Архив", StringComparison.OrdinalIgnoreCase)
+                : NormalizeCategory(row.Category).Equals(NormalizeCategory(state.Category), StringComparison.OrdinalIgnoreCase);
+            if (!inDocument || (onlyFavorites && !row.Favorite)) return false;
+            return query.Length == 0 || string.Join(" ", row.Number, row.Title, row.Chapter, row.Text,
+                row.Tags, row.Note, row.Raw["SourceRef"]?.ToString(), row.Raw["SourceLawTitle"]?.ToString())
+                .Contains(query, StringComparison.OrdinalIgnoreCase);
+        }).ToList();
+
+        _suppressLawSelection = true;
+        try
+        {
+            var view = new ListCollectionView(rows);
+            view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(LawRow.Chapter)));
+            state.List.ItemsSource = view;
+            if (selected is not null && rows.Contains(selected))
+                state.List.SelectedItem = selected;
+        }
+        finally { _suppressLawSelection = false; }
+
+        if (state.Count is not null)
+            state.Count.Text = $"{rows.Count} записей" + (state.IsArchive ? " · архив" : "");
+    }
+
+    private bool MatchesLawTabFilter(LawRow row, LawDocumentTabState state)
+    {
+        var inDocument = state.IsArchive
+            ? row.Category.StartsWith("Архив", StringComparison.OrdinalIgnoreCase)
+            : NormalizeCategory(row.Category).Equals(NormalizeCategory(state.Category), StringComparison.OrdinalIgnoreCase);
+        if (!inDocument || (state.OnlyFavorites?.IsChecked == true && !row.Favorite)) return false;
+        var query = state.Search?.Text?.Trim() ?? "";
+        return query.Length == 0 || string.Join(" ", row.Number, row.Title, row.Chapter, row.Text,
+            row.Tags, row.Note, row.Raw["SourceRef"]?.ToString(), row.Raw["SourceLawTitle"]?.ToString())
+            .Contains(query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void DocumentSearch_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_loading || sender is not TextBox search || search.Tag is not LawDocumentTabState state) return;
+        if (_selectedLaw is not null && ReferenceEquals(_activeLawTab, state) &&
+            ReferenceEquals(state.List?.SelectedItem, _selectedLaw) && !MatchesLawTabFilter(_selectedLaw, state))
+        {
+            CommitSelectedLaw();
+            _suppressLawSelection = true;
+            state.List!.SelectedItem = null;
+            _suppressLawSelection = false;
+            FillLawEditor(null);
+        }
+        RefreshLawTab(state);
+    }
+
+    private void DocumentFilter_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_loading || sender is not CheckBox checkBox || checkBox.Tag is not LawDocumentTabState state) return;
+        if (_selectedLaw is not null && ReferenceEquals(_activeLawTab, state) &&
+            ReferenceEquals(state.List?.SelectedItem, _selectedLaw) && !MatchesLawTabFilter(_selectedLaw, state))
+        {
+            CommitSelectedLaw();
+            _suppressLawSelection = true;
+            state.List!.SelectedItem = null;
+            _suppressLawSelection = false;
+            FillLawEditor(null);
+        }
+        RefreshLawTab(state);
+    }
+
+    private void CatalogSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_catalogDocuments.Count == 0) return;
+        var query = CatalogSearchBox.Text?.Trim() ?? "";
+        LawCatalogTiles.ItemsSource = query.Length == 0
+            ? _catalogDocuments
+            : _catalogDocuments.Where(document => document.Category.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                document.DocumentType.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    private void OpenLawDocument_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.Tag is string category &&
+            _lawDocumentTabs.TryGetValue(category, out var state))
+            MainTabs.SelectedItem = state.Tab;
+    }
+
+    private void OpenArchiveTab_Click(object sender, RoutedEventArgs e)
+    {
+        if (_archiveTabState is not null)
+            MainTabs.SelectedItem = _archiveTabState.Tab;
+    }
+
+    private void UpdateMainTabsLayout()
+    {
+        MainTabs.ApplyTemplate();
+        var state = (MainTabs.SelectedItem as TabItem)?.Tag as LawDocumentTabState;
+        var showEditor = state is not null;
+        LawEditorHost.Visibility = showEditor ? Visibility.Visible : Visibility.Collapsed;
+
+        if (MainTabs.Template.FindName("PART_SelectedContentHost", MainTabs) is ContentPresenter presenter)
+            Grid.SetColumnSpan(presenter, showEditor ? 1 : 2);
+    }
+
+    private void CommitSelectedLaw()
+    {
+        if (_selectedLaw is null) return;
+        _lawSaveTimer.Stop();
+        ApplyLawEditor();
+        SaveLaws(createBackup: false);
+    }
+
+    private sealed class LawDocumentTabState
+    {
+        public string Category { get; set; } = "";
+        public bool IsArchive { get; set; }
+        public LawCatalogDocument? Document { get; set; }
+        public TabItem Tab { get; set; } = null!;
+        public ListBox? List { get; set; }
+        public TextBox? Search { get; set; }
+        public CheckBox? OnlyFavorites { get; set; }
+        public TextBlock? Count { get; set; }
     }
 
     private void SaveJson(string path, JsonNode node, bool createBackup = true)
@@ -702,7 +1032,7 @@ public partial class MainWindow : Window
         _loading = true;
         try
         {
-            EditCategory.SelectedItem = row?.Category ?? "УК";
+            EditCategory.SelectedItem = row?.Category ?? (_activeLawTab is { IsArchive: false } activeTab ? activeTab.Category : _catalogDocuments.FirstOrDefault()?.Category);
             EditNumber.Text = row?.Number ?? "";
             EditTitle.Text = row?.Title ?? "";
             EditNote.Text = row?.Note ?? "";
@@ -828,47 +1158,18 @@ public partial class MainWindow : Window
         catch { }
     }
 
-    // The left selector filters the library. If the active record is filtered out,
-    // commit it before clearing the editor; the chosen filter then becomes the
-    // destination for the next new article.
-    private void CategoryBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_loading) return;
-
-        var selectedFilter = CategoryBox.SelectedItem?.ToString() ?? "Все категории";
-        RefreshLawFilter();
-
-        if (_selectedLaw is not null && !ReferenceEquals(LawList.SelectedItem, _selectedLaw))
-        {
-            _lawSaveTimer.Stop();
-            RunSafe(() =>
-            {
-                ApplyLawEditor();
-                SaveLaws(createBackup: false);
-            }, "Сохранение статьи перед сменой фильтра");
-            FillLawEditor(null);
-        }
-
-        if (_selectedLaw is null && selectedFilter != "Все категории")
-        {
-            _loading = true;
-            EditCategory.SelectedItem = selectedFilter;
-            _loading = false;
-        }
-    }
-
-    private void SearchBox_TextChanged(object sender, TextChangedEventArgs e) => RefreshLawFilter();
-    private void FilterOptions_Changed(object sender, RoutedEventArgs e) => RefreshLawFilter();
     private void LawList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (LawList.SelectedItem is not LawRow row) return;
-        if (!_loading && _selectedLaw is not null && !ReferenceEquals(_selectedLaw, row))
-        {
-            _lawSaveTimer.Stop();
-            RunSafe(() => { ApplyLawEditor(); SaveLaws(createBackup: false); }, "Сохранение предыдущей статьи при переключении");
-        }
+        if (_loading || _suppressLawSelection || sender is not ListBox list ||
+            list.SelectedItem is not LawRow row) return;
+
+        if (_selectedLaw is not null && !ReferenceEquals(_selectedLaw, row))
+            CommitSelectedLaw();
+
+        _activeLawTab = list.Tag as LawDocumentTabState;
         FillLawEditor(row);
     }
+
     private void LawEditor_TextChanged(object sender, TextChangedEventArgs e) => ScheduleLawSave();
     private void EditCategory_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -879,43 +1180,47 @@ public partial class MainWindow : Window
             requestedCategory.Equals(NormalizeCategory(_selectedLaw.Category), StringComparison.OrdinalIgnoreCase))
             return;
 
-        // Move first, save, and only then update the list filter. Refreshing the filter
-        // before the model has moved makes the selected row disappear from the view.
         _lawSaveTimer.Stop();
         RunSafe(() =>
         {
-            ApplyLawEditor();
-            SaveLaws(createBackup: false);
-
-            _loading = true;
-            CategoryBox.SelectedItem = requestedCategory;
-            _loading = false;
-
+            var movedRow = _selectedLaw;
+            CommitSelectedLaw();
             RefreshLawFilter();
-            LawList.SelectedItem = _selectedLaw;
+
+            LawDocumentTabState? destination = null;
+            if (!_lawDocumentTabs.TryGetValue(requestedCategory, out destination) &&
+                requestedCategory.StartsWith("Архив", StringComparison.OrdinalIgnoreCase))
+                destination = _archiveTabState;
+
+            if (destination is not null)
+            {
+                MainTabs.SelectedItem = destination.Tab;
+                _activeLawTab = destination;
+                _suppressLawSelection = true;
+                destination.List!.SelectedItem = movedRow;
+                _suppressLawSelection = false;
+                FillLawEditor(movedRow);
+            }
             EditorHint.Text = $"Статья перемещена в раздел «{requestedCategory}».";
-        }, "Перемещение статьи между категориями");
+        }, "Перемещение статьи между документами");
     }
     private void LawEditor_OptionChanged(object sender, RoutedEventArgs e) => ScheduleLawSave();
 
     private void AddLaw_Click(object sender, RoutedEventArgs e)
     {
+        if (_activeLawTab is null || _activeLawTab.IsArchive)
+        {
+            MessageBox.Show(this, "Открой вкладку конкретного документа, чтобы добавить статью в него.",
+                "Russia Online Studio", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
         RunSafe(() =>
         {
-            // Flush the previous editor before replacing its selection. Otherwise a
-            // pending 700 ms autosave can be stopped by FillLawEditor and be lost.
-            _lawSaveTimer.Stop();
             if (_selectedLaw is not null)
-            {
-                ApplyLawEditor();
-                SaveLaws(createBackup: false);
-            }
+                CommitSelectedLaw();
 
-            // The editor category is the destination for a new record. The left
-            // category selector is deliberately independent and is only a filter.
-            var chosenCategory = NormalizeCategory(EditCategory.SelectedItem?.ToString() ?? "УК");
-            if (string.IsNullOrWhiteSpace(chosenCategory)) chosenCategory = "УК";
-
+            var chosenCategory = _activeLawTab.Category;
             var raw = new JsonObject
             {
                 ["Id"] = Guid.NewGuid().ToString("N"),
@@ -925,29 +1230,26 @@ public partial class MainWindow : Window
                 ["RichTextRtf"] = "",
                 ["Note"] = "",
                 ["Favorite"] = false,
-                ["InMemo"] = true
+                ["InMemo"] = true,
+                ["Chapter"] = "Пользовательские записи",
+                ["SourceLawTitle"] = chosenCategory,
+                ["SourceServer"] = "Арбатский",
+                ["SourceStatus"] = "Пользовательская запись"
             };
 
-            var targetArray = GetCategoryArray(chosenCategory);
-            targetArray.Add(raw);
+            GetCategoryArray(chosenCategory).Add(raw);
             var storage = FindStorageCategory(chosenCategory);
             var row = new LawRow(storage, raw);
             _laws.Add(row);
-
-            _loading = true;
-            EditCategory.SelectedItem = chosenCategory;
-            CategoryBox.SelectedItem = chosenCategory;
-            _loading = false;
-
-            // Persist the new row immediately, even if the user closes the app
-            // before typing its number or title.
             SaveLaws(createBackup: false);
             RefreshLawFilter();
-            LawList.SelectedItem = row;
+
+            MainTabs.SelectedItem = _activeLawTab.Tab;
+            _activeLawTab.List!.SelectedItem = row;
             FillLawEditor(row);
             EditNumber.Focus();
-            StatusText.Text = $"Новая статья создаётся в категории «{chosenCategory}».";
-        }, "Добавление статьи");
+            StatusText.Text = $"Новая запись создаётся в документе «{chosenCategory}».";
+        }, "Добавление статьи в документ");
     }
 
     private void SaveLaw_Click(object sender, RoutedEventArgs e)
@@ -1138,8 +1440,11 @@ public partial class MainWindow : Window
         {
             _lawSaveTimer.Stop();
             _panelSaveTimer.Stop();
-            if (_selectedLaw is not null) { ApplyLawEditor(); SaveLaws(); }
+            if (_selectedLaw is not null) { CommitSelectedLaw(); FillLawEditor(null); }
             if (_selectedPanel is not null) { ApplyPanelEditor(); SavePanels(); }
+            _activeLawTab = null;
+            MainTabs.SelectedItem = LibraryTab;
+            UpdateMainTabsLayout();
             var nextProfile = ActiveProfileKey;
             WriteTextAtomically(Path.Combine(_dataDir, "active_profile.txt"), nextProfile);
             _loadedProfileKey = nextProfile;
@@ -1267,6 +1572,27 @@ public partial class MainWindow : Window
 
     private void MainTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (!ReferenceEquals(sender, MainTabs) || _loading) return;
+
+        var nextLawTab = (MainTabs.SelectedItem as TabItem)?.Tag as LawDocumentTabState;
+        if (!ReferenceEquals(_activeLawTab, nextLawTab))
+        {
+            if (_selectedLaw is not null)
+            {
+                CommitSelectedLaw();
+                FillLawEditor(null);
+            }
+            _activeLawTab = nextLawTab;
+        }
+
+        UpdateMainTabsLayout();
+        if (nextLawTab is not null)
+        {
+            StatusText.Text = nextLawTab.IsArchive
+                ? "Архив старых и неподтверждённых записей. Эти материалы не являются действующими законами."
+                : $"Документ: {nextLawTab.Category} • только статьи этого документа";
+        }
+
         if (ForumTab is not null && MainTabs.SelectedItem == ForumTab && !_forumInitialized)
             _forumInitTask ??= InitializeForumAsync();
     }
@@ -1411,6 +1737,18 @@ public partial class MainWindow : Window
             if (_selectedPanel is not null) { ApplyPanelEditor(); SavePanels(); }
         }, "Сохранение всех данных");
     }
+}
+
+public sealed class LawCatalogDocument
+{
+    public int Order { get; set; }
+    public string Category { get; set; } = "";
+    public string DocumentType { get; set; } = "";
+    public string File { get; set; } = "";
+    public string SourceUrl { get; set; } = "";
+    public string SourceUpdated { get; set; } = "";
+    public int ArticleCount { get; set; }
+    public int CatalogArticleCount { get; set; }
 }
 
 public sealed class LawRow

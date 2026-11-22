@@ -5,9 +5,95 @@
  Title="Russia Online Studio" Width="1200" Height="800" MinWidth="960" MinHeight="620"
  WindowStartupLocation="CenterScreen" Background="#0D1117" Foreground="#E8EDF3"
  Opacity="0" Loaded="Window_Loaded" PreviewKeyDown="Window_PreviewKeyDown">
+
+ <Window.Resources>
+  <DataTemplate x:Key="LawRowTemplate">
+   <Border Background="#151C25" BorderBrush="#2A3542" BorderThickness="0,0,0,1" Padding="9,8">
+    <StackPanel>
+     <TextBlock Text="{Binding Title}" Foreground="#E5EAF0" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap"/>
+     <DockPanel Margin="0,5,0,0">
+      <TextBlock Text="{Binding Number}" Foreground="#E1C18E" FontSize="11" FontWeight="Bold" DockPanel.Dock="Left"/>
+      <TextBlock Text="{Binding Chapter}" Foreground="#8292A3" FontSize="10" Margin="9,0,0,0" TextTrimming="CharacterEllipsis"/>
+     </DockPanel>
+    </StackPanel>
+   </Border>
+  </DataTemplate>
+  <DataTemplate x:Key="LawCatalogTileTemplate">
+   <Button Tag="{Binding Category}" Click="OpenLawDocument_Click"
+    Background="#151C25" Foreground="#E8EDF3" BorderBrush="#344354" BorderThickness="1"
+    Padding="0" Margin="5" Width="270" Height="142" HorizontalContentAlignment="Stretch"
+    VerticalContentAlignment="Stretch" ToolTip="{Binding Category}">
+    <Border Padding="14" CornerRadius="9">
+     <Grid>
+      <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+      <StackPanel>
+       <TextBlock Text="{Binding Category}" Foreground="#E9D0A5" FontWeight="SemiBold" FontSize="14"
+        TextWrapping="Wrap" MaxHeight="58"/>
+       <TextBlock Text="{Binding DocumentType}" Foreground="#91A0B0" FontSize="10" Margin="0,7,0,0"/>
+      </StackPanel>
+      <DockPanel Grid.Row="1">
+       <TextBlock Text="АРБАТСКИЙ СЕРВЕР" Foreground="#7991A5" FontSize="9" FontWeight="SemiBold"/>
+       <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+        <TextBlock Text="Записей: " Foreground="#D6B77F" FontSize="10"/>
+        <TextBlock Text="{Binding ArticleCount}" Foreground="#D6B77F" FontSize="10"/>
+       </StackPanel>
+      </DockPanel>
+     </Grid>
+    </Border>
+   </Button>
+  </DataTemplate>
+  <DataTemplate x:Key="LawChapterGroupTemplate">
+   <Border Background="#26313D" BorderBrush="#435365" BorderThickness="0,0,0,1" Padding="9,6" Margin="0,4,0,2">
+    <TextBlock Text="{Binding Name}" Foreground="#D9B77E" FontSize="11" FontWeight="Bold" TextWrapping="Wrap"/>
+   </Border>
+  </DataTemplate>
+  <Style TargetType="{x:Type TabItem}">
+   <Setter Property="Foreground" Value="#B9C4D0"/>
+   <Setter Property="Background" Value="#18212B"/>
+   <Setter Property="BorderBrush" Value="#2A3542"/>
+   <Setter Property="Padding" Value="10,7"/>
+   <Setter Property="Margin" Value="0,0,4,0"/>
+   <Setter Property="FontSize" Value="11"/>
+   <Style.Triggers>
+    <Trigger Property="IsSelected" Value="True">
+     <Setter Property="Foreground" Value="#F0D4A5"/>
+     <Setter Property="Background" Value="#2B2924"/>
+     <Setter Property="BorderBrush" Value="#B99660"/>
+    </Trigger>
+    <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#25313E"/></Trigger>
+   </Style.Triggers>
+  </Style>
+  <Style x:Key="ScrollableWorkspaceTabs" TargetType="{x:Type TabControl}">
+   <Setter Property="ItemsPanel">
+    <Setter.Value><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></Setter.Value>
+   </Setter>
+   <Setter Property="Template">
+    <Setter.Value>
+     <ControlTemplate TargetType="{x:Type TabControl}">
+      <Grid ClipToBounds="True" SnapsToDevicePixels="True">
+       <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+       <Grid.ColumnDefinitions><ColumnDefinition Width="390"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <Border Grid.Row="0" Grid.ColumnSpan="2" Background="#111820" BorderBrush="#2A3542" BorderThickness="0,0,0,1">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+         CanContentScroll="False" Focusable="False" Padding="0,0,0,2">
+         <ItemsPresenter/>
+        </ScrollViewer>
+       </Border>
+       <Border Grid.Row="1" Grid.Column="0" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+        BorderThickness="0" ClipToBounds="True">
+        <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent"
+         SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+       </Border>
+      </Grid>
+     </ControlTemplate>
+    </Setter.Value>
+   </Setter>
+  </Style>
+ </Window.Resources>
  <Grid x:Name="RootLayout" Margin="16">
+  <Grid.ColumnDefinitions><ColumnDefinition Width="390"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-  <Border Grid.Row="0" Background="#151C25" BorderBrush="#2A3542" BorderThickness="1" CornerRadius="14" Padding="15" Margin="0,0,0,12">
+  <Border Grid.Row="0" Grid.ColumnSpan="2" Background="#151C25" BorderBrush="#2A3542" BorderThickness="1" CornerRadius="14" Padding="15" Margin="0,0,0,12">
    <DockPanel LastChildFill="False">
     <StackPanel DockPanel.Dock="Left">
      <TextBlock Text="RUSSIA ONLINE / STUDIO" FontSize="20" FontWeight="Bold" Foreground="#E2C18C"/>
@@ -23,7 +109,8 @@
    </DockPanel>
   </Border>
 
-  <TabControl x:Name="MainTabs" Grid.Row="1" Background="#111820" BorderBrush="#2A3542" SelectionChanged="MainTabs_SelectionChanged">
+  <TabControl x:Name="MainTabs" Grid.Row="1" Grid.ColumnSpan="2" Background="#111820" BorderBrush="#2A3542"
+   Style="{StaticResource ScrollableWorkspaceTabs}" SelectionChanged="MainTabs_SelectionChanged">
    <TabControl.Resources>
     <Style TargetType="{x:Type TabItem}">
      <Setter Property="Foreground" Value="#B9C4D0"/>
@@ -43,45 +130,113 @@
     </Style>
    </TabControl.Resources>
 
-   <TabItem Header="Библиотека законов">
-    <Grid Margin="12">
-     <Grid.ColumnDefinitions><ColumnDefinition Width="330"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-     <Grid>
-      <Grid.RowDefinitions>
-       <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-       <RowDefinition Height="*"/><RowDefinition Height="Auto"/>
-      </Grid.RowDefinitions>
-      <ComboBox x:Name="CategoryBox" Grid.Row="0" MaxDropDownHeight="560"
-       ToolTip="Фильтр по полным названиям документов Арбатского сервера."
-       SelectionChanged="CategoryBox_SelectionChanged">
-       <ComboBox.ItemTemplate>
-        <DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="340" Padding="5,3"/></DataTemplate>
-       </ComboBox.ItemTemplate>
-      </ComboBox>
-      <TextBox x:Name="SearchBox" Grid.Row="1" ToolTip="Поиск по номеру, названию, тексту и тегам" TextChanged="SearchBox_TextChanged"/>
-      <CheckBox x:Name="OnlyFavorites" Grid.Row="2" Content="Только избранное" Foreground="#DCC18E" Checked="FilterOptions_Changed" Unchecked="FilterOptions_Changed"/>
-      <ListBox x:Name="LawList" Grid.Row="3" Background="#10161D" Foreground="#E8EDF3" BorderBrush="#2D3947"
-       SelectionChanged="LawList_SelectionChanged" Margin="3" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-       <ListBox.ItemTemplate>
-        <DataTemplate>
-         <StackPanel Margin="2,1">
-          <TextBlock Text="{Binding Title}" Foreground="#E5EAF0" FontSize="12" FontWeight="SemiBold"
-           TextWrapping="Wrap" MaxHeight="38"/>
-          <DockPanel Margin="0,3,0,0">
-           <TextBlock Text="{Binding Number}" Foreground="#E1C18E" FontSize="11" FontWeight="Bold" DockPanel.Dock="Left"/>
-           <TextBlock Text="{Binding Chapter}" Foreground="#8292A3" FontSize="10" Margin="8,0,0,0"
-            TextTrimming="CharacterEllipsis" MaxWidth="230"/>
-          </DockPanel>
-         </StackPanel>
-        </DataTemplate>
-       </ListBox.ItemTemplate>
-      </ListBox>
-      <Button Grid.Row="4" Content="＋ Добавить статью" Background="#C6A16B" Foreground="#11151A"
-       ToolTip="Новая запись будет создана в категории, выбранной справа в редакторе."
-       Click="AddLaw_Click"/>
-     </Grid>
 
-     <Border Grid.Column="1" Background="#151C25" BorderBrush="#2A3542" BorderThickness="1" CornerRadius="12" Padding="16" Margin="14,0,0,0">
+   <TabItem x:Name="LibraryTab" Header="Библиотека законов" Tag="FullWidth">
+    <Grid Margin="16">
+     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+     <StackPanel Margin="3,0,3,12">
+      <TextBlock Text="ЗАКОНОДАТЕЛЬНАЯ БАЗА · АРБАТСКИЙ СЕРВЕР" Foreground="#D9B77E" FontSize="12" FontWeight="Bold"/>
+      <TextBlock x:Name="LibrarySummaryText" Text="Загрузка каталога документов..."
+       Foreground="#A2AFBD" FontSize="13" Margin="0,6,0,0" TextWrapping="Wrap"/>
+     </StackPanel>
+     <DockPanel Grid.Row="1" Margin="3,0,3,8">
+      <Button DockPanel.Dock="Right" Content="Архив старых записей" Click="OpenArchiveTab_Click"
+       Foreground="#D8BA8A" ToolTip="Старые и неподтверждённые записи отдельно от действующих документов"/>
+      <TextBox x:Name="CatalogSearchBox" VerticalContentAlignment="Center"
+       ToolTip="Поиск по названию документа" TextChanged="CatalogSearchBox_TextChanged"/>
+     </DockPanel>
+     <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <ItemsControl x:Name="LawCatalogTiles" ItemTemplate="{StaticResource LawCatalogTileTemplate}">
+       <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+      </ItemsControl>
+     </ScrollViewer>
+    </Grid>
+   </TabItem>
+
+   <TabItem x:Name="PanelsTab" Header="Конструктор панелей" Tag="FullWidth">
+    <Grid Margin="12">
+     <Grid.ColumnDefinitions><ColumnDefinition Width="290"/><ColumnDefinition Width="*"/><ColumnDefinition Width="350"/></Grid.ColumnDefinitions>
+     <DockPanel>
+      <Button DockPanel.Dock="Bottom" Content="＋ Новая панель" Background="#B99660" Foreground="#11151A" Click="AddPanel_Click"/>
+      <ListBox x:Name="PanelList" Background="#10161D" Foreground="#E8EDF3" BorderBrush="#2D3947" DisplayMemberPath="Title" SelectionChanged="PanelList_SelectionChanged"/>
+     </DockPanel>
+     <ScrollViewer Grid.Column="1" Margin="13,0">
+      <StackPanel>
+       <TextBlock Text="Параметры панели" FontSize="21" FontWeight="SemiBold" Foreground="#E9D0A5" Margin="3,0,3,12"/>
+       <TextBlock Text="Название" Foreground="#9AA8B7" FontSize="11"/>
+       <TextBox x:Name="PanelTitle" TextChanged="PanelEditor_TextChanged"/>
+       <TextBlock Text="Содержимое" Foreground="#9AA8B7" FontSize="11"/>
+       <TextBox x:Name="PanelBody" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="260" VerticalScrollBarVisibility="Auto" TextChanged="PanelEditor_TextChanged"/>
+       <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+        <StackPanel><TextBlock Text="Ширина" Foreground="#9AA8B7" FontSize="11"/><TextBox x:Name="PanelWidth" TextChanged="PanelEditor_TextChanged"/></StackPanel>
+        <StackPanel Grid.Column="1"><TextBlock Text="Масштаб" Foreground="#9AA8B7" FontSize="11"/><TextBox x:Name="PanelScale" TextChanged="PanelEditor_TextChanged"/></StackPanel>
+       </Grid>
+       <CheckBox x:Name="PanelVisible" Content="Показывать в Overlay" Margin="5" Foreground="#E8EDF3" Checked="PanelEditor_OptionChanged" Unchecked="PanelEditor_OptionChanged"/>
+       <StackPanel Orientation="Horizontal">
+        <Button Content="Сохранить панель" Background="#B99660" Foreground="#11151A" Click="SavePanel_Click"/>
+        <Button Content="Удалить" Foreground="#F09B9B" Click="DeletePanel_Click"/>
+       </StackPanel>
+      </StackPanel>
+     </ScrollViewer>
+     <Border Grid.Column="2" Background="#0B1016" BorderBrush="#34404E" BorderThickness="1" CornerRadius="12" Padding="14">
+      <DockPanel>
+       <TextBlock DockPanel.Dock="Top" Text="ПРЕДПРОСМОТР" Foreground="#D5B17A" FontWeight="Bold" Margin="0,0,0,12"/>
+       <ScrollViewer><TextBlock x:Name="PanelPreview" TextWrapping="Wrap" Foreground="#E8EDF3" FontSize="15"/></ScrollViewer>
+      </DockPanel>
+     </Border>
+    </Grid>
+   </TabItem>
+
+   <TabItem x:Name="ForumTab" Header="Форум / браузер" Tag="FullWidth">
+    <Grid Margin="10">
+     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+     <DockPanel Grid.Row="0" Margin="0,0,0,6">
+      <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+       <Button Content="←" Width="38" Click="BrowserBack_Click"/><Button Content="→" Width="38" Click="BrowserForward_Click"/><Button Content="↻" Width="38" Click="BrowserReload_Click"/>
+      </StackPanel>
+      <Button DockPanel.Dock="Right" Content="Открыть" Background="#B99660" Foreground="#11151A" Click="BrowserGo_Click"/>
+      <TextBox x:Name="AddressBox" Text="https://forum.russia.online/threads/ugolovnyi-kodeks-ro.39487/" VerticalContentAlignment="Center" KeyDown="AddressBox_KeyDown"/>
+     </DockPanel>
+     <Border Grid.Row="1" x:Name="FindBar" Background="#1B2530" BorderBrush="#3B4857" BorderThickness="1" CornerRadius="8" Padding="6" Margin="0,0,0,6" Visibility="Collapsed">
+      <DockPanel>
+       <TextBlock Text="Поиск на странице" Foreground="#9AA8B7" VerticalAlignment="Center" Margin="4,0,8,0"/>
+       <Button DockPanel.Dock="Right" Content="×" Width="34" Click="CloseFind_Click"/>
+       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+        <Button Content="↑" Width="36" Click="FindPrevious_Click"/><Button Content="↓" Width="36" Click="FindNext_Click"/>
+       </StackPanel>
+       <TextBox x:Name="FindBox" KeyDown="FindBox_KeyDown" VerticalContentAlignment="Center"/>
+      </DockPanel>
+     </Border>
+     <Border Grid.Row="2" Background="#FFFFFF" BorderBrush="#303B48" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+      <wv2:WebView2 x:Name="ForumBrowser"/>
+     </Border>
+    </Grid>
+   </TabItem>
+
+   <TabItem x:Name="SettingsTab" Header="Настройки" Tag="FullWidth">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+     <StackPanel Margin="22" MaxWidth="760" HorizontalAlignment="Left">
+      <TextBlock Text="Настройки и данные" FontSize="22" FontWeight="SemiBold" Foreground="#E9D0A5" Margin="0,0,0,16"/>
+      <TextBlock Text="Масштаб интерфейса (%)" Foreground="#9AA8B7"/><TextBox x:Name="UiScale" Text="125"/>
+      <TextBlock Text="Масштаб текста Overlay (0.6 — старый стандарт)" Foreground="#9AA8B7"/><TextBox x:Name="GameScale" Text="0.6"/>
+      <TextBlock Text="Горячие клавиши Overlay" Foreground="#9AA8B7" Margin="0,15,0,3"/>
+      <TextBlock Text="F8 — выход · F9 — показать/скрыть все окна · F10 — панель управления · F11 — режим перемещения" TextWrapping="Wrap"/>
+      <TextBlock Text="Папка данных" Foreground="#9AA8B7" Margin="0,18,0,3"/><TextBlock x:Name="DataPath" TextWrapping="Wrap"/>
+      <TextBlock Text="Профиль браузера" Foreground="#9AA8B7" Margin="0,18,0,3"/>
+      <TextBlock Text="Встроенный браузер хранит вход отдельно в профиле текущего пользователя Windows (LocalAppData), поэтому сессия не попадает в переносимую папку Data. Войди на форум вручную; пароль программа не запрашивает и не извлекает." TextWrapping="Wrap" Foreground="#95A3B2"/>
+      <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+       <Button Content="Сохранить настройки" Background="#B99660" Foreground="#11151A" Click="SaveSettings_Click"/>
+       <Button Content="Импорт базы JSON" Click="ImportDatabase_Click"/>
+       <Button Content="Экспорт базы JSON" Click="ExportDatabase_Click"/>
+       <Button Content="Открыть папку Data" Click="OpenData_Click"/>
+      </StackPanel>
+     </StackPanel>
+    </ScrollViewer>
+   </TabItem>
+  </TabControl>
+
+  <Border x:Name="LawEditorHost" Grid.Row="1" Grid.Column="1" Margin="0,46,0,0" Visibility="Collapsed">
+        <Border Background="#151C25" BorderBrush="#2A3542" BorderThickness="1" CornerRadius="12" Padding="16" Margin="0">
       <Grid>
        <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
@@ -168,92 +323,9 @@
        </StackPanel>
       </Grid>
      </Border>
-    </Grid>
-   </TabItem>
+  </Border>
 
-   <TabItem Header="Конструктор панелей">
-    <Grid Margin="12">
-     <Grid.ColumnDefinitions><ColumnDefinition Width="290"/><ColumnDefinition Width="*"/><ColumnDefinition Width="350"/></Grid.ColumnDefinitions>
-     <DockPanel>
-      <Button DockPanel.Dock="Bottom" Content="＋ Новая панель" Background="#B99660" Foreground="#11151A" Click="AddPanel_Click"/>
-      <ListBox x:Name="PanelList" Background="#10161D" Foreground="#E8EDF3" BorderBrush="#2D3947" DisplayMemberPath="Title" SelectionChanged="PanelList_SelectionChanged"/>
-     </DockPanel>
-     <ScrollViewer Grid.Column="1" Margin="13,0">
-      <StackPanel>
-       <TextBlock Text="Параметры панели" FontSize="21" FontWeight="SemiBold" Foreground="#E9D0A5" Margin="3,0,3,12"/>
-       <TextBlock Text="Название" Foreground="#9AA8B7" FontSize="11"/>
-       <TextBox x:Name="PanelTitle" TextChanged="PanelEditor_TextChanged"/>
-       <TextBlock Text="Содержимое" Foreground="#9AA8B7" FontSize="11"/>
-       <TextBox x:Name="PanelBody" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="260" VerticalScrollBarVisibility="Auto" TextChanged="PanelEditor_TextChanged"/>
-       <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-        <StackPanel><TextBlock Text="Ширина" Foreground="#9AA8B7" FontSize="11"/><TextBox x:Name="PanelWidth" TextChanged="PanelEditor_TextChanged"/></StackPanel>
-        <StackPanel Grid.Column="1"><TextBlock Text="Масштаб" Foreground="#9AA8B7" FontSize="11"/><TextBox x:Name="PanelScale" TextChanged="PanelEditor_TextChanged"/></StackPanel>
-       </Grid>
-       <CheckBox x:Name="PanelVisible" Content="Показывать в Overlay" Margin="5" Foreground="#E8EDF3" Checked="PanelEditor_OptionChanged" Unchecked="PanelEditor_OptionChanged"/>
-       <StackPanel Orientation="Horizontal">
-        <Button Content="Сохранить панель" Background="#B99660" Foreground="#11151A" Click="SavePanel_Click"/>
-        <Button Content="Удалить" Foreground="#F09B9B" Click="DeletePanel_Click"/>
-       </StackPanel>
-      </StackPanel>
-     </ScrollViewer>
-     <Border Grid.Column="2" Background="#0B1016" BorderBrush="#34404E" BorderThickness="1" CornerRadius="12" Padding="14">
-      <DockPanel>
-       <TextBlock DockPanel.Dock="Top" Text="ПРЕДПРОСМОТР" Foreground="#D5B17A" FontWeight="Bold" Margin="0,0,0,12"/>
-       <ScrollViewer><TextBlock x:Name="PanelPreview" TextWrapping="Wrap" Foreground="#E8EDF3" FontSize="15"/></ScrollViewer>
-      </DockPanel>
-     </Border>
-    </Grid>
-   </TabItem>
-
-   <TabItem x:Name="ForumTab" Header="Форум / браузер">
-    <Grid Margin="10">
-     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-     <DockPanel Grid.Row="0" Margin="0,0,0,6">
-      <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-       <Button Content="←" Width="38" Click="BrowserBack_Click"/><Button Content="→" Width="38" Click="BrowserForward_Click"/><Button Content="↻" Width="38" Click="BrowserReload_Click"/>
-      </StackPanel>
-      <Button DockPanel.Dock="Right" Content="Открыть" Background="#B99660" Foreground="#11151A" Click="BrowserGo_Click"/>
-      <TextBox x:Name="AddressBox" Text="https://forum.russia.online/threads/ugolovnyi-kodeks-ro.39487/" VerticalContentAlignment="Center" KeyDown="AddressBox_KeyDown"/>
-     </DockPanel>
-     <Border Grid.Row="1" x:Name="FindBar" Background="#1B2530" BorderBrush="#3B4857" BorderThickness="1" CornerRadius="8" Padding="6" Margin="0,0,0,6" Visibility="Collapsed">
-      <DockPanel>
-       <TextBlock Text="Поиск на странице" Foreground="#9AA8B7" VerticalAlignment="Center" Margin="4,0,8,0"/>
-       <Button DockPanel.Dock="Right" Content="×" Width="34" Click="CloseFind_Click"/>
-       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-        <Button Content="↑" Width="36" Click="FindPrevious_Click"/><Button Content="↓" Width="36" Click="FindNext_Click"/>
-       </StackPanel>
-       <TextBox x:Name="FindBox" KeyDown="FindBox_KeyDown" VerticalContentAlignment="Center"/>
-      </DockPanel>
-     </Border>
-     <Border Grid.Row="2" Background="#FFFFFF" BorderBrush="#303B48" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
-      <wv2:WebView2 x:Name="ForumBrowser"/>
-     </Border>
-    </Grid>
-   </TabItem>
-
-   <TabItem Header="Настройки">
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-     <StackPanel Margin="22" MaxWidth="760" HorizontalAlignment="Left">
-      <TextBlock Text="Настройки и данные" FontSize="22" FontWeight="SemiBold" Foreground="#E9D0A5" Margin="0,0,0,16"/>
-      <TextBlock Text="Масштаб интерфейса (%)" Foreground="#9AA8B7"/><TextBox x:Name="UiScale" Text="125"/>
-      <TextBlock Text="Масштаб текста Overlay (0.6 — старый стандарт)" Foreground="#9AA8B7"/><TextBox x:Name="GameScale" Text="0.6"/>
-      <TextBlock Text="Горячие клавиши Overlay" Foreground="#9AA8B7" Margin="0,15,0,3"/>
-      <TextBlock Text="F8 — выход · F9 — показать/скрыть все окна · F10 — панель управления · F11 — режим перемещения" TextWrapping="Wrap"/>
-      <TextBlock Text="Папка данных" Foreground="#9AA8B7" Margin="0,18,0,3"/><TextBlock x:Name="DataPath" TextWrapping="Wrap"/>
-      <TextBlock Text="Профиль браузера" Foreground="#9AA8B7" Margin="0,18,0,3"/>
-      <TextBlock Text="Встроенный браузер хранит вход отдельно в профиле текущего пользователя Windows (LocalAppData), поэтому сессия не попадает в переносимую папку Data. Войди на форум вручную; пароль программа не запрашивает и не извлекает." TextWrapping="Wrap" Foreground="#95A3B2"/>
-      <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
-       <Button Content="Сохранить настройки" Background="#B99660" Foreground="#11151A" Click="SaveSettings_Click"/>
-       <Button Content="Импорт базы JSON" Click="ImportDatabase_Click"/>
-       <Button Content="Экспорт базы JSON" Click="ExportDatabase_Click"/>
-       <Button Content="Открыть папку Data" Click="OpenData_Click"/>
-      </StackPanel>
-     </StackPanel>
-    </ScrollViewer>
-   </TabItem>
-  </TabControl>
-
-  <DockPanel Grid.Row="2" Margin="4,8,4,0">
+  <DockPanel Grid.Row="2" Grid.ColumnSpan="2" Margin="4,8,4,0">
    <TextBlock x:Name="StatusText" Text="Готово" Foreground="#A6B2BF" FontSize="11"/>
    <TextBlock DockPanel.Dock="Right" Text="RUSSIA ONLINE • LOCAL DATA" Foreground="#596777" FontSize="10"/>
   </DockPanel>
