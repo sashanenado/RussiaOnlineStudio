@@ -6,6 +6,7 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -35,9 +36,6 @@ public partial class MainWindow : Window
     private long _lawSaveRevision;
     private readonly DispatcherTimer _panelSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(700) };
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
-
-    private static readonly string[] DefaultCategories =
-        ["УК", "КоАП", "ПК", "ПГО", "ФЗ о ФСО", "О территориях"];
 
     public MainWindow()
     {
@@ -164,7 +162,7 @@ public partial class MainWindow : Window
                 }
             }
 
-            _lawRoot = MergeLawDatabases(bundled, profileDb);
+            _lawRoot = MergeProfileSafely(bundled, profileDb);
             _bases = _lawRoot["Bases"] as JsonObject ?? new JsonObject();
             _lawRoot["Bases"] = _bases;
 
@@ -193,140 +191,225 @@ public partial class MainWindow : Window
 
     private JsonObject LoadBundledOrDefault()
     {
-        var bundled = Path.Combine(_dataDir, "laws_database.json");
-        if (!File.Exists(bundled))
-            return new JsonObject { ["Bases"] = new JsonObject() };
-        var parsed = JsonNode.Parse(File.ReadAllText(bundled)) as JsonObject;
-        if (parsed?["Bases"] is not JsonObject)
-            throw new InvalidDataException("Data/laws_database.json не содержит объект Bases.");
-
-        var extendedDirectory = Path.Combine(_dataDir, "ExtendedLaws");
-        if (Directory.Exists(extendedDirectory))
+        // The root database is a legacy source, not the active law catalogue.
+        // Keep it intact in a separate archive category and load only the 27
+        // full-title documents imported from the Arbat-server catalogue.
+        var rootPath = Path.Combine(_dataDir, "laws_database.json");
+        JsonObject legacyRoot = new();
+        if (File.Exists(rootPath))
         {
-            foreach (var file in Directory.EnumerateFiles(extendedDirectory, "*.json").OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+            legacyRoot = JsonNode.Parse(File.ReadAllText(rootPath)) as JsonObject
+                ?? throw new InvalidDataException("Data/laws_database.json повреждён.");
+            if (legacyRoot["Bases"] is not JsonObject)
+                throw new InvalidDataException("Data/laws_database.json не содержит объект Bases.");
+        }
+
+        var result = new JsonObject();
+        foreach (var property in legacyRoot)
+        {
+            if (!property.Key.Equals("Bases", StringComparison.OrdinalIgnoreCase))
+                result[property.Key] = property.Value?.DeepClone();
+        }
+
+        var activeBases = new JsonObject();
+        result["Bases"] = activeBases;
+        var catalogue = new JsonArray();
+        var extendedDirectory = Path.Combine(_dataDir, "ExtendedLaws");
+        if (!Directory.Exists(extendedDirectory))
+            throw new DirectoryNotFoundException("Не найдена папка Data\\ExtendedLaws.");
+
+        var files = Directory.EnumerateFiles(extendedDirectory, "*.json")
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToList();
+        if (files.Count == 0)
+            throw new InvalidDataException("В Data\\ExtendedLaws нет импортированных документов Арбатского каталога.");
+
+        foreach (var file in files)
+        {
+            var extension = JsonNode.Parse(File.ReadAllText(file)) as JsonObject
+                ?? throw new InvalidDataException($"Файл {Path.GetFileName(file)} повреждён.");
+            var category = extension["Category"]?.ToString()?.Trim();
+            var articles = extension["Articles"] as JsonArray;
+            var server = extension["Server"]?.ToString()?.Trim();
+            if (string.IsNullOrWhiteSpace(category) || articles is null)
+                throw new InvalidDataException($"В {Path.GetFileName(file)} нет Category или Articles.");
+            if (!string.Equals(server, "Арбатский", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException($"Документ {category} не подтверждён для Арбатского сервера.");
+            if (activeBases.ContainsKey(category))
+                throw new InvalidDataException($"Повторяется заголовок документа: {category}");
+
+            activeBases[category] = articles.DeepClone();
+            catalogue.Add(new JsonObject
             {
-                var extension = JsonNode.Parse(File.ReadAllText(file)) as JsonObject;
-                var category = extension?["Category"]?.ToString();
-                var articles = extension?["Articles"] as JsonArray;
-                if (string.IsNullOrWhiteSpace(category) || articles is null) continue;
-                var extensionDb = new JsonObject
+                ["Order"] = int.TryParse(extension["Order"]?.ToString(), out var order) ? order : 999,
+                ["Category"] = category,
+                ["Title"] = extension["LawTitle"]?.ToString() ?? category,
+                ["SourceUrl"] = extension["SourceUrl"]?.ToString() ?? "",
+                ["SourceUpdated"] = extension["SourceUpdated"]?.ToString() ?? "",
+                ["ArticleCount"] = extension["ArticleCount"]?.DeepClone()
+            });
+        }
+
+        result["Catalog"] = catalogue;
+
+        var legacyArchive = new JsonArray();
+        if (legacyRoot["Bases"] is JsonObject oldBases)
+        {
+            foreach (var category in oldBases)
+            {
+                if (category.Value is not JsonArray oldArray) continue;
+                foreach (var item in oldArray)
                 {
-                    ["Bases"] = new JsonObject
-                    {
-                        [category] = articles.DeepClone()
-                    }
-                };
-                parsed = MergeLawDatabases(parsed, extensionDb);
+                    if (item is not JsonObject oldArticle) continue;
+                    var archived = (JsonObject)oldArticle.DeepClone();
+                    archived["LegacySourceCategory"] = category.Key;
+                    archived["SourceStatus"] = "Старая базовая копия. Не является активной редакцией Арбатского каталога.";
+                    legacyArchive.Add(archived);
+                }
             }
         }
-        return parsed;
+        if (legacyArchive.Count > 0)
+            activeBases["Архив • Старые записи (непроверено)"] = legacyArchive;
+
+        return result;
     }
 
-    private static JsonObject MergeLawDatabases(JsonObject baseDb, JsonObject profileDb)
+    private static JsonObject MergeProfileSafely(JsonObject canonicalDb, JsonObject profileDb)
     {
-        var merged = (JsonObject)baseDb.DeepClone();
+        // The bundled Arbat catalogue is authoritative. A profile may contribute
+        // personal notes/favourites, but must never overwrite the new law text.
+        var merged = (JsonObject)canonicalDb.DeepClone();
         var targetBases = merged["Bases"] as JsonObject ?? new JsonObject();
         merged["Bases"] = targetBases;
         var sourceBases = profileDb["Bases"] as JsonObject;
         if (sourceBases is null) return merged;
 
+        var byId = new Dictionary<string, JsonObject>(StringComparer.OrdinalIgnoreCase);
+        var byNaturalKey = new Dictionary<string, List<JsonObject>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var targetArray in targetBases.Select(pair => pair.Value).OfType<JsonArray>())
+        {
+            foreach (var node in targetArray.OfType<JsonObject>())
+            {
+                var id = node["Id"]?.ToString()?.Trim();
+                if (!string.IsNullOrWhiteSpace(id)) byId[id] = node;
+                var key = BuildArticleMatchKey(node);
+                if (key is null) continue;
+                if (!byNaturalKey.TryGetValue(key, out var matches))
+                    byNaturalKey[key] = matches = new List<JsonObject>();
+                matches.Add(node);
+            }
+        }
+
+        var profileArchive = targetBases["Архив • Старые записи (непроверено)"] as JsonArray
+            ?? new JsonArray();
         foreach (var sourceCategory in sourceBases)
         {
             if (sourceCategory.Value is not JsonArray sourceArray) continue;
-            var targetKey = targetBases.Select(p => p.Key)
-                .FirstOrDefault(k => NormalizeCategory(k) == NormalizeCategory(sourceCategory.Key))
-                ?? sourceCategory.Key;
-            if (targetBases[targetKey] is not JsonArray targetArray)
+            foreach (var sourceArticle in sourceArray.OfType<JsonObject>())
             {
-                targetArray = new JsonArray();
-                targetBases[targetKey] = targetArray;
-            }
+                JsonObject? canonical = null;
+                var id = sourceArticle["Id"]?.ToString()?.Trim();
+                if (!string.IsNullOrWhiteSpace(id))
+                    byId.TryGetValue(id, out canonical);
 
-            foreach (var sourceNode in sourceArray)
-            {
-                if (sourceNode is not JsonObject sourceArticle) continue;
-                var id = sourceArticle["Id"]?.ToString()?.Trim() ?? "";
-                var number = sourceArticle["Number"]?.ToString()?.Trim() ?? "";
-                JsonObject? existingArticle = null;
-
-                // Find stable IDs globally so a category change removes the old source-category copy.
-                if (id.Length > 0)
+                if (canonical is null)
                 {
-                    foreach (var otherCategory in targetBases)
-                    {
-                        if (otherCategory.Value is not JsonArray otherArray) continue;
-                        for (var i = 0; i < otherArray.Count; i++)
-                        {
-                            if (otherArray[i] is JsonObject current &&
-                                string.Equals(current["Id"]?.ToString()?.Trim(), id, StringComparison.OrdinalIgnoreCase))
-                            {
-                                existingArticle = current;
-                                if (!string.Equals(otherCategory.Key, targetKey, StringComparison.OrdinalIgnoreCase))
-                                    otherArray.RemoveAt(i);
-                                break;
-                            }
-                        }
-                        if (existingArticle is not null) break;
-                    }
+                    var key = BuildArticleMatchKey(sourceArticle);
+                    if (key is not null && byNaturalKey.TryGetValue(key, out var candidates) && candidates.Count == 1)
+                        canonical = candidates[0];
                 }
 
-                // Legacy base entries may not have an ID. A move can be detected by a unique
-                // exact pair of article number and title across all categories.
-                if (existingArticle is null && number.Length > 0)
+                if (canonical is not null)
                 {
-                    var title = sourceArticle["Title"]?.ToString()?.Trim() ?? "";
-                    var matches = new List<(JsonArray Array, int Index, JsonObject Article)>();
-                    foreach (var otherCategory in targetBases)
+                    // Personal metadata is safe to migrate independently of the legal wording.
+                    foreach (var field in new[] { "Note", "Tags", "Favorite", "InMemo" })
                     {
-                        if (otherCategory.Value is not JsonArray otherArray) continue;
-                        for (var i = 0; i < otherArray.Count; i++)
-                        {
-                            if (otherArray[i] is JsonObject current &&
-                                string.Equals(current["Number"]?.ToString()?.Trim(), number, StringComparison.OrdinalIgnoreCase) &&
-                                (title.Length == 0 || string.Equals(current["Title"]?.ToString()?.Trim(), title, StringComparison.Ordinal)))
-                                matches.Add((otherArray, i, current));
-                        }
+                        if (sourceArticle.ContainsKey(field))
+                            canonical[field] = sourceArticle[field]?.DeepClone();
                     }
 
-                    if (matches.Count == 1)
+                    var oldText = sourceArticle["Text"]?.ToString() ?? "";
+                    var currentText = canonical["Text"]?.ToString() ?? "";
+                    var oldTitle = sourceArticle["Title"]?.ToString() ?? "";
+                    var currentTitle = canonical["Title"]?.ToString() ?? "";
+                    if (!string.Equals(oldText, currentText, StringComparison.Ordinal) ||
+                        !string.Equals(oldTitle, currentTitle, StringComparison.Ordinal))
                     {
-                        var match = matches[0];
-                        existingArticle = match.Article;
-                        if (!ReferenceEquals(match.Array, targetArray))
-                            match.Array.RemoveAt(match.Index);
+                        AddProfileArchive(profileArchive, sourceArticle, sourceCategory.Key,
+                            "Сохранённая профильная копия прежней редакции; текущий текст загружен из каталога Арбатского сервера.");
                     }
-                    else if (matches.Count == 0)
+                    else if (sourceArticle["RichTextRtf"] is JsonValue rtf && !string.IsNullOrWhiteSpace(rtf.ToString()))
                     {
-                        for (var i = 0; i < targetArray.Count; i++)
-                        {
-                            if (targetArray[i] is JsonObject current &&
-                                string.Equals(current["Number"]?.ToString()?.Trim(), number, StringComparison.OrdinalIgnoreCase))
-                            { existingArticle = current; break; }
-                        }
+                        canonical["RichTextRtf"] = rtf.DeepClone();
                     }
+                    continue;
                 }
 
-                var mergedArticle = existingArticle is null
-                    ? (JsonObject)sourceArticle.DeepClone()
-                    : (JsonObject)existingArticle.DeepClone();
-                foreach (var property in sourceArticle)
-                    mergedArticle[property.Key] = property.Value?.DeepClone();
-
-                var destinationIndex = -1;
-                if (id.Length > 0)
+                // Keep custom rows if they already belong to a full-title category.
+                // Unmatched rows from old abbreviated categories are kept in the archive,
+                // so they cannot appear beside current legal provisions.
+                if (targetBases[sourceCategory.Key] is JsonArray sameCategory &&
+                    !sourceCategory.Key.StartsWith("Архив", StringComparison.OrdinalIgnoreCase) &&
+                    !sourceCategory.Key.Equals("УК", StringComparison.OrdinalIgnoreCase) &&
+                    !sourceCategory.Key.Equals("ук", StringComparison.OrdinalIgnoreCase) &&
+                    !sourceCategory.Key.Equals("КОАП", StringComparison.OrdinalIgnoreCase) &&
+                    !sourceCategory.Key.Equals("КоАП", StringComparison.OrdinalIgnoreCase) &&
+                    !sourceCategory.Key.Equals("ПК", StringComparison.OrdinalIgnoreCase))
                 {
-                    for (var i = 0; i < targetArray.Count; i++)
-                    {
-                        if (targetArray[i] is JsonObject current &&
-                            string.Equals(current["Id"]?.ToString()?.Trim(), id, StringComparison.OrdinalIgnoreCase))
-                        { destinationIndex = i; break; }
-                    }
+                    var custom = (JsonObject)sourceArticle.DeepClone();
+                    if (!string.IsNullOrWhiteSpace(id) &&
+                        sameCategory.OfType<JsonObject>().Any(item =>
+                            string.Equals(item["Id"]?.ToString(), id, StringComparison.OrdinalIgnoreCase)))
+                        continue;
+                    sameCategory.Add(custom);
                 }
-                if (destinationIndex >= 0) targetArray[destinationIndex] = mergedArticle;
-                else targetArray.Add(mergedArticle);
+                else
+                {
+                    AddProfileArchive(profileArchive, sourceArticle, sourceCategory.Key,
+                        "Не удалось однозначно сопоставить со свежим документом каталога; исходная запись сохранена отдельно.");
+                }
             }
         }
+
+        if (profileArchive.Count > 0)
+            targetBases["Архив • Старые записи (непроверено)"] = profileArchive;
         return merged;
+    }
+
+    private static string? BuildArticleMatchKey(JsonObject article)
+    {
+        var source = NormalizeMatchText(article["SourceLawTitle"]?.ToString());
+        var number = NormalizeArticleNumber(article["Number"]?.ToString());
+        var title = NormalizeMatchText(article["Title"]?.ToString());
+        if (source.Length == 0 || number.Length == 0 || title.Length == 0) return null;
+        return $"{source}|{number}|{title}";
+    }
+
+    private static string NormalizeMatchText(string? value) =>
+        Regex.Replace((value ?? "").Trim().ToLowerInvariant(), @"\s+", " ");
+
+    private static string NormalizeArticleNumber(string? value)
+    {
+        var source = (value ?? "").Trim();
+        var match = Regex.Match(source, @"(?:ст\.?\s*)?(\d+(?:\.\d+)*)$", RegexOptions.IgnoreCase);
+        return match.Success ? match.Groups[1].Value : source.ToLowerInvariant();
+    }
+
+    private static void AddProfileArchive(JsonArray archive, JsonObject article, string category, string status)
+    {
+        var copy = (JsonObject)article.DeepClone();
+        copy["LegacySourceCategory"] = category;
+        copy["SourceStatus"] = status;
+        var id = copy["Id"]?.ToString();
+        var number = copy["Number"]?.ToString() ?? "";
+        var title = copy["Title"]?.ToString() ?? "";
+        var text = copy["Text"]?.ToString() ?? "";
+        var duplicate = archive.OfType<JsonObject>().Any(item =>
+            (!string.IsNullOrWhiteSpace(id) &&
+             string.Equals(item["Id"]?.ToString(), id, StringComparison.OrdinalIgnoreCase)) ||
+            (string.Equals(item["Number"]?.ToString() ?? "", number, StringComparison.OrdinalIgnoreCase) &&
+             string.Equals(item["Title"]?.ToString() ?? "", title, StringComparison.Ordinal) &&
+             string.Equals(item["Text"]?.ToString() ?? "", text, StringComparison.Ordinal)));
+        if (!duplicate) archive.Add(copy);
     }
 
     private static string NormalizeCategory(string? value)
@@ -359,28 +442,43 @@ public partial class MainWindow : Window
     private void LoadLawRows()
     {
         _laws.Clear();
-        foreach (var cat in _bases)
+
+        var orderedCategories = new List<string>();
+        if (_lawRoot["Catalog"] is JsonArray catalogue)
         {
-            if (cat.Value is not JsonArray array) continue;
+            foreach (var item in catalogue.OfType<JsonObject>().OrderBy(item =>
+                         int.TryParse(item["Order"]?.ToString(), out var order) ? order : 999))
+            {
+                var category = item["Category"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(category) && _bases[category] is JsonArray &&
+                    !orderedCategories.Contains(category, StringComparer.OrdinalIgnoreCase))
+                    orderedCategories.Add(category);
+            }
+        }
+
+        var additionalCategories = _bases.Select(pair => pair.Key)
+            .Where(category => !orderedCategories.Contains(category, StringComparer.OrdinalIgnoreCase))
+            .OrderBy(category => category.StartsWith("Архив", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
+            .ThenBy(category => category, StringComparer.OrdinalIgnoreCase);
+        orderedCategories.AddRange(additionalCategories);
+
+        foreach (var category in orderedCategories)
+        {
+            if (_bases[category] is not JsonArray array) continue;
             foreach (var node in array)
                 if (node is JsonObject obj)
                 {
-                    // Give every record a stable identity. This prevents two drafts with the same
-                    // temporary title and no article number from overwriting each other.
                     if (string.IsNullOrWhiteSpace(obj["Id"]?.ToString()))
                         obj["Id"] = Guid.NewGuid().ToString("N");
-                    _laws.Add(new LawRow(cat.Key, obj));
+                    _laws.Add(new LawRow(category, obj));
                 }
         }
 
-        var categories = DefaultCategories
-            .Concat(_bases.Select(p => NormalizeCategory(p.Key)))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var categories = orderedCategories.Select(NormalizeCategory).ToList();
         CategoryBox.ItemsSource = new[] { "Все категории" }.Concat(categories).ToList();
         EditCategory.ItemsSource = categories;
         CategoryBox.SelectedItem = "Все категории";
-        EditCategory.SelectedItem = "УК";
+        EditCategory.SelectedItem = categories.FirstOrDefault();
     }
 
     private void LoadPanels()
@@ -452,7 +550,7 @@ public partial class MainWindow : Window
         var rows = _laws.Where(x =>
             (selected == "Все категории" || NormalizeCategory(x.Category).Equals(NormalizeCategory(selected), StringComparison.OrdinalIgnoreCase)) &&
             (!onlyFavorites || x.Favorite) &&
-            (query.Length == 0 || string.Join(" ", x.Number, x.Title, x.Text, x.Tags, x.Note, x.Raw["SourceRef"]?.ToString(), x.Raw["SourceLawTitle"]?.ToString()).Contains(query, StringComparison.OrdinalIgnoreCase)))
+            (query.Length == 0 || string.Join(" ", x.Number, x.Title, x.Chapter, x.Text, x.Tags, x.Note, x.Raw["SourceRef"]?.ToString(), x.Raw["SourceLawTitle"]?.ToString()).Contains(query, StringComparison.OrdinalIgnoreCase)))
             .ToList();
         var old = _selectedLaw;
         LawList.ItemsSource = rows;
@@ -629,11 +727,17 @@ public partial class MainWindow : Window
                 range.Text = row?.Text ?? "";
             var sourceRef = row?.Raw["SourceRef"]?.ToString();
             var sourceLaw = row?.Raw["SourceLawTitle"]?.ToString();
+            var chapter = row?.Raw["Chapter"]?.ToString();
+            var updated = row?.Raw["SourceUpdated"]?.ToString();
+            var sourceStatus = row?.Raw["SourceStatus"]?.ToString();
             EditorHint.Text = row is null
                 ? "Создай новую статью или выбери существующую"
                 : $"Категория: {row.Category} • {row.Number}" +
+                  (string.IsNullOrWhiteSpace(chapter) ? "" : $" • {chapter}") +
                   (string.IsNullOrWhiteSpace(sourceRef) ? "" : $" • Источник: {sourceRef}") +
-                  (string.IsNullOrWhiteSpace(sourceLaw) ? "" : $" — {sourceLaw}");
+                  (string.IsNullOrWhiteSpace(sourceLaw) ? "" : $" — {sourceLaw}") +
+                  (string.IsNullOrWhiteSpace(updated) ? "" : $" • Обновлено: {updated}") +
+                  (string.IsNullOrWhiteSpace(sourceStatus) ? "" : $" • {sourceStatus}");
         }
         finally { _loading = false; }
     }
@@ -1317,6 +1421,7 @@ public sealed class LawRow
     public JsonObject Raw { get; }
     public string Number { get; set; }
     public string Title { get; set; }
+    public string Chapter { get; set; }
     public string Text { get; set; }
     public string RichTextRtf { get; set; }
     public string Note { get; set; }
@@ -1336,6 +1441,7 @@ public sealed class LawRow
         raw["Id"] = Id;
         Number = raw["Number"]?.ToString() ?? "";
         Title = raw["Title"]?.ToString() ?? "";
+        Chapter = raw["Chapter"]?.ToString() ?? "";
         Text = raw["Text"]?.ToString() ?? "";
         RichTextRtf = raw["RichTextRtf"]?.ToString() ?? "";
         Note = raw["Note"]?.ToString() ?? "";

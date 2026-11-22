@@ -51,7 +51,13 @@
        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
        <RowDefinition Height="*"/><RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
-      <ComboBox x:Name="CategoryBox" Grid.Row="0" ToolTip="Фильтр списка слева. Не меняет категорию открытой статьи." SelectionChanged="CategoryBox_SelectionChanged"/>
+      <ComboBox x:Name="CategoryBox" Grid.Row="0" MaxDropDownHeight="560"
+       ToolTip="Фильтр по полным названиям документов Арбатского сервера."
+       SelectionChanged="CategoryBox_SelectionChanged">
+       <ComboBox.ItemTemplate>
+        <DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="340" Padding="5,3"/></DataTemplate>
+       </ComboBox.ItemTemplate>
+      </ComboBox>
       <TextBox x:Name="SearchBox" Grid.Row="1" ToolTip="Поиск по номеру, названию, тексту и тегам" TextChanged="SearchBox_TextChanged"/>
       <CheckBox x:Name="OnlyFavorites" Grid.Row="2" Content="Только избранное" Foreground="#DCC18E" Checked="FilterOptions_Changed" Unchecked="FilterOptions_Changed"/>
       <ListBox x:Name="LawList" Grid.Row="3" Background="#10161D" Foreground="#E8EDF3" BorderBrush="#2D3947"
@@ -60,10 +66,11 @@
         <DataTemplate>
          <StackPanel Margin="2,1">
           <TextBlock Text="{Binding Title}" Foreground="#E5EAF0" FontSize="12" FontWeight="SemiBold"
-           TextTrimming="CharacterEllipsis" MaxHeight="20"/>
+           TextWrapping="Wrap" MaxHeight="38"/>
           <DockPanel Margin="0,3,0,0">
            <TextBlock Text="{Binding Number}" Foreground="#E1C18E" FontSize="11" FontWeight="Bold" DockPanel.Dock="Left"/>
-           <TextBlock Text="{Binding Category}" Foreground="#8292A3" FontSize="10" Margin="8,0,0,0"/>
+           <TextBlock Text="{Binding Chapter}" Foreground="#8292A3" FontSize="10" Margin="8,0,0,0"
+            TextTrimming="CharacterEllipsis" MaxWidth="230"/>
           </DockPanel>
          </StackPanel>
         </DataTemplate>
@@ -99,8 +106,13 @@
         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions>
         <StackPanel Grid.Column="0">
          <TextBlock Text="Категория" Foreground="#9AA8B7" FontSize="11" Margin="4,0"/>
-         <ComboBox x:Name="EditCategory" ToolTip="Категория текущей статьи. Для новой записи выбери здесь нужный раздел."
-          SelectionChanged="EditCategory_SelectionChanged"/>
+         <ComboBox x:Name="EditCategory" MaxDropDownHeight="560"
+          ToolTip="Документ Арбатского сервера, к которому относится статья."
+          SelectionChanged="EditCategory_SelectionChanged">
+          <ComboBox.ItemTemplate>
+           <DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="420" Padding="5,3"/></DataTemplate>
+          </ComboBox.ItemTemplate>
+         </ComboBox>
         </StackPanel>
         <StackPanel Grid.Column="1">
          <TextBlock Text="Номер" Foreground="#9AA8B7" FontSize="11" Margin="4,0"/>
