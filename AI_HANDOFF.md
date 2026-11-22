@@ -83,3 +83,10 @@
 ### NEXT PROMPT — VERIFY ROOT NAVIGATION AND IMPROVE DISCOVERABILITY
 
 Продолжай RussiaOnlineStudio. Прочитай AI_HANDOFF.md целиком и обнови его первым изменением следующего цикла. Последний кодовый commit: 7f9c989fb8efdc13feaf60f4dfe67847a3c43b93 (development). Последний handoff commit: fc42cd80f8d03d7f5c3f682162dd0f7ef82cdc0c. Главная навигация переставлена: сначала четыре системных вкладки, затем 27 документов и архив; названия ФСО/территорий/прочих законов уточнены. Дождись/проверь CI для кодового commit и зафиксируй результат в handoff. Не трогай main. Затем при наличии CI PASS и если пользователь жалуется на видимость вкладок, добавь более явную discoverability (горизонтальная прокрутка/индикаторы) без потери самостоятельных root tabs. Проведи Windows runtime-проверку только если реально доступна; иначе укажи её как ручной следующий шаг.
+
+### CI snapshot на 22.11.2026, 16:40 (локальное время проекта)
+
+- Build run #84: https://github.com/sashanenado/RussiaOnlineStudio/actions/runs/45003722683
+- Commit: 7f9c989fb8efdc13feaf60f4dfe67847a3c43b93.
+- Последний опрос: workflow всё ещё `in_progress`; шаги валидации XML/XAML/JSON, law database и всех 27 Arbat документов завершились `success`; `Publish Studio` выполнялся, Publish Overlay / package / artifact ещё ожидали.
+- Итог сборки и Artifact ID пока не известны. Следующий чат должен повторно проверить run #84 и добавить сюда окончательное заключение и artifact ID/ссылку, если сборка завершится успешно.
