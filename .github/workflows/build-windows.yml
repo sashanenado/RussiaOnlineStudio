@@ -83,9 +83,22 @@ jobs:
             $total += $group.Articles.Count
           }
           if ($total -lt 1000) { throw "Arbat catalogue unexpectedly small: $total article/rule entries." }
-          $manifest = Get-Content Data/law_catalog.json -Raw | ConvertFrom-Json
+          $manifest = @(Get-Content Data/law_catalog.json -Raw | ConvertFrom-Json)
           if ($manifest.Count -ne 27) { throw "Data/law_catalog.json must contain exactly 27 documents." }
-          Write-Host "Validated $($files.Count) full-title Arbat documents and $total article/rule entries."
+          foreach ($document in $manifest) {
+            if ([string]::IsNullOrWhiteSpace($document.File) -or [string]::IsNullOrWhiteSpace($document.Category)) {
+              throw "Catalog manifest entry has no File or Category."
+            }
+            $path = Join-Path "Data/ExtendedLaws" $document.File
+            if (-not (Test-Path $path)) { throw "Catalog file is missing: $($document.File)" }
+            $group = Get-Content $path -Raw | ConvertFrom-Json
+            if ($group.Category -ne $document.Category) {
+              throw "Manifest title does not match $($document.File): $($document.Category) != $($group.Category)"
+            }
+          }
+          $manifestFiles = @($manifest | ForEach-Object { $_.File } | Sort-Object -Unique)
+          if ($manifestFiles.Count -ne $files.Count) { throw "Manifest and ExtendedLaws file counts differ." }
+          Write-Host "Validated $($files.Count) full-title Arbat documents, source manifest and $total article/rule entries."
           $rules = Get-Content Data/rules_docs.json -Raw | ConvertFrom-Json
           $pgo = $rules | Where-Object { $_.id -eq "11" }
           if ($null -eq $pgo -or $pgo.count -ne 118) { throw "PGO source metadata missing or changed." }
