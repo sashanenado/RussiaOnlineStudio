@@ -1237,7 +1237,7 @@ public partial class MainWindow : Window
             if (imported["Bases"] is not JsonObject)
                 throw new InvalidDataException("В файле не найден объект Bases. Исходная база не изменена.");
 
-            var merged = MergeLawDatabases(_lawRoot, imported);
+            var merged = MergeProfileSafely(_lawRoot, imported);
             if (merged["Bases"] is not JsonObject mergedBases)
                 throw new InvalidDataException("Не удалось прочитать разделы базы.");
 

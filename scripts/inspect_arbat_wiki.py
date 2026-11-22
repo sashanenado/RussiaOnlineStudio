@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Import the 27 legal documents listed for Russia Online's Arbat server."""
-import json, re, time
+import json, re, time, sys
+
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
