@@ -1,0 +1,30 @@
+name: Inspect Arbat Wiki legal sources
+
+on:
+  push:
+    branches: [development]
+    paths:
+      - 'scripts/inspect_arbat_wiki.py'
+      - '.github/workflows/inspect-arbat-wiki.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install HTML parser
+        run: python -m pip install beautifulsoup4
+      - name: Fetch Arbat legal catalogue pages
+        run: python scripts/inspect_arbat_wiki.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arbat-wiki-source-inspection
+          path: arbat-wiki-inspection/
+          retention-days: 7
