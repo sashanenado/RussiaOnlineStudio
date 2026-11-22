@@ -139,3 +139,18 @@
 ### NEXT PROMPT — VALIDATE THE ROOT LAW TABS IN THE BUILT APP
 
 Продолжай RussiaOnlineStudio. Прочитай AI_HANDOFF.md и обнови его первым изменением следующего цикла. Основная задача пользователя: прямо в одной верхней полосе рядом с «Библиотека законов», «Конструктор панелей», «Форум / браузер», «Настройки» добавить отдельные вкладки всех документов Арбатского каталога (КоАП, УК, УПК, ФЗ о ФСО, ФЗ о территориях и остальные), внутри каждой показывать только собственные главы/статьи/пункты. Эта реализация уже находится в development commit 7f9c989fb8efdc13feaf60f4dfe67847a3c43b93, Run #84 PASS, artifact ID 14745909798 (RussiaOnlineStudio-Overlay-win-x64). Скачай/проверь артефакт, выдай пользователю. Далее дождись его визуальной проверки WPF на Windows и исправляй конкретные замечания, сохраняя профили, общий редактор, сохранение, архив и Overlay. main не менять.
+
+
+### Итог проверки артефакта Run #84 — 22.11.2026
+
+- Artifact ID: `14745909798`.
+- Artifact name: `RussiaOnlineStudio-Overlay-win-x64`.
+- Размер GitHub artifact wrapper: `119,970,133 bytes`.
+- GitHub SHA-256 wrapper: `62bed28dbb179d880ff28c1f03100a58855be359d0af61449fdbe3a2dc8b9cad`.
+- Срок хранения по GitHub: до `2026-12-06T08:39:08Z`.
+- Artifact downloaded and inspected. Внешний ZIP содержит один вложенный portable ZIP `RussiaOnline_Studio_Overlay_win-x64.zip`.
+- Внутренний portable ZIP: `119,946,339 bytes`; SHA-256 `a18b9f2d306252fdb4dcf3ac6ebcbf1dbc5da2d0fe8292009acfe75523eb4cc6`.
+- Внутри подтверждены `Studio.exe`, `Overlay.exe`, `Data/law_catalog.json`, ровно 27 `Data/ExtendedLaws/*.json`. Для всех 27 файлов проверены JSON parse, соответствие манифесту по File/Category и Server=Арбатский. Суммарно 1,735 записей.
+- Распакованный внутренний portable ZIP дополнительно подготовлен для прямой передачи пользователю как `RussiaOnlineStudio-Arbat-Portable.zip`; SHA-256 совпадает с внутренним ZIP выше.
+- Никакого runtime GUI test эта проверка не заменяет: WPF Studio и Overlay поверх GTA 5 всё ещё требуется запустить и проверить на Windows.
+
