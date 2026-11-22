@@ -566,7 +566,7 @@ public partial class MainWindow : Window
         _archiveTabState = null;
         _catalogDocuments.Clear();
 
-        var index = Math.Max(0, MainTabs.Items.IndexOf(LibraryTab) + 1);
+        var index = Math.Max(0, MainTabs.Items.IndexOf(SettingsTab) + 1);
         if (_lawRoot["Catalog"] is JsonArray catalogue)
         {
             foreach (var item in catalogue.OfType<JsonObject>().OrderBy(item =>
@@ -634,29 +634,29 @@ public partial class MainWindow : Window
             "constitution.json" => "Конституция",
             "criminal-procedure.json" => "УПК",
             "koap.json" => "КоАП",
-            "labor.json" => "Трудовой кодекс",
+            "labor.json" => "ТК",
             "ethics.json" => "Этика",
-            "court.json" => "Суды",
+            "court.json" => "ФКЗ о судах",
             "gibdd-disciplinary.json" => "Дисциплина ГИБДД",
             "gibdd-charter.json" => "Устав ГИБДД",
-            "government-law.json" => "Правительство",
+            "government-law.json" => "ФКЗ о Правительстве",
             "traffic.json" => "ПДД",
-            "police.json" => "Полиция",
-            "prosecutor.json" => "Прокуратура",
-            "security-service.json" => "ФСБ",
+            "police.json" => "ФЗ о полиции",
+            "prosecutor.json" => "ФЗ о прокуратуре",
+            "security-service.json" => "ФЗ о ФСБ",
             "emergency.json" => "ЧП / ВП",
-            "territories.json" => "Территории",
-            "weapons.json" => "Оружие",
-            "fso.json" => "ФСО",
-            "documents.json" => "Документы",
-            "armed-forces.json" => "ВС РО",
-            "business.json" => "Бизнес",
-            "investigative-committee.json" => "СК",
-            "advocacy.json" => "Адвокатура",
-            "media.json" => "СМИ",
+            "territories.json" => "ФЗ о территориях",
+            "weapons.json" => "Закон об оружии",
+            "fso.json" => "ФЗ о ФСО",
+            "documents.json" => "Госдокументы",
+            "armed-forces.json" => "ФЗ о ВС РО",
+            "business.json" => "ФЗ о бизнесе",
+            "investigative-committee.json" => "ФЗ о СК",
+            "advocacy.json" => "ФЗ об адвокатуре",
+            "media.json" => "ФЗ о СМИ",
             "immunity.json" => "Неприкосновенность",
-            "medical.json" => "Медицина",
-            "internal-security.json" => "ОСБ ГИБДД",
+            "medical.json" => "ФЗ о медицине",
+            "internal-security.json" => "Положение ОСБ",
             _ => document.Category
         };
     }
