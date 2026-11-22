@@ -185,7 +185,12 @@ def parse(html,order,key,slug,code):
             "\n".join(history),wiki,forum,upd,"История изменений (справочно)"))
     for a in rows:
         a["Text"]=a["Text"].strip()
-        if not a["Text"] and len(a["Title"])>55: a["Text"]=a["Title"]
+        if not a["Text"]:
+            # Some source entries are intentionally presented as a standalone heading/sentence.
+            # Keep that source wording as the searchable body rather than showing an empty article.
+            a["Text"]=a["Title"]
+            if a["ArticleType"] != "История изменений (справочно)":
+                a["Note"]=(a["Note"]+"\n" if a["Note"] else "") + "В карточке источника отдельный текст не указан; сохранена исходная формулировка заголовка."
     doc={"Order":order,"Category":title,"Code":code,"LawTitle":title,"Server":"Арбатский",
       "DocumentType":dtype,"SourceServer":server,"SourceUrl":wiki,"SourceForumUrl":forum,
       "SourceUpdated":upd,"SourceStatus":"Опубликовано в каталоге Арбатского сервера; приоритет у редакции официального форума",

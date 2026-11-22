@@ -52,23 +52,40 @@ jobs:
           }
           Write-Host "Law database is valid. Category counts:"
           $counts.GetEnumerator() | Sort-Object Name | Format-Table -AutoSize
-      - name: Validate extended Arbat catalog
+      - name: Validate full Arbat legal catalogue
         shell: pwsh
         run: |
           $files = @(Get-ChildItem Data/ExtendedLaws -Filter *.json -File)
-          if ($files.Count -ne 24) { throw "Expected 24 extended law group files, found $($files.Count)." }
+          if ($files.Count -ne 27) { throw "Expected 27 Arbat legal documents, found $($files.Count)." }
           $total = 0
+          $categories = @{}
           foreach ($file in $files) {
             $group = Get-Content $file.FullName -Raw | ConvertFrom-Json
-            if ([string]::IsNullOrWhiteSpace($group.Category)) { throw "Missing Category in $($file.Name)." }
-            if ($null -eq $group.Articles -or $group.Articles -isnot [array]) { throw "Articles array missing in $($file.Name)." }
+            if ($group.Server -ne "Арбатский") { throw "Wrong or missing server in $($file.Name): $($group.Server)" }
+            if ([string]::IsNullOrWhiteSpace($group.Category)) { throw "Missing full document heading in $($file.Name)." }
+            if ($categories.ContainsKey($group.Category)) { throw "Duplicate document heading: $($group.Category)" }
+            $categories[$group.Category] = $true
+            if ([string]::IsNullOrWhiteSpace($group.SourceUrl) -or [string]::IsNullOrWhiteSpace($group.SourceForumUrl)) {
+              throw "Missing source link in $($file.Name)."
+            }
+            if ($null -eq $group.Articles -or $group.Articles -isnot [array] -or $group.Articles.Count -eq 0) {
+              throw "Articles array missing or empty in $($file.Name)."
+            }
             $ids = @($group.Articles | ForEach-Object { $_.Id } | Where-Object { $_ })
             if ($ids.Count -ne $group.Articles.Count) { throw "Missing stable IDs in $($file.Name)." }
             if (($ids | Sort-Object -Unique).Count -ne $ids.Count) { throw "Duplicate IDs in $($file.Name)." }
+            if (@($group.Articles | Where-Object { $_.SourceServer -ne "Арбатский" }).Count -gt 0) {
+              throw "A non-Arbat article was found in $($file.Name)."
+            }
+            if (@($group.Articles | Where-Object { [string]::IsNullOrWhiteSpace($_.Text) }).Count -gt 0) {
+              throw "An empty article body was found in $($file.Name)."
+            }
             $total += $group.Articles.Count
           }
-          if ($total -lt 2500) { throw "Extended catalog unexpectedly small: $total entries." }
-          Write-Host "Validated $($files.Count) extended categories and $total Arbat units."
+          if ($total -lt 1000) { throw "Arbat catalogue unexpectedly small: $total article/rule entries." }
+          $manifest = Get-Content Data/law_catalog.json -Raw | ConvertFrom-Json
+          if ($manifest.Count -ne 27) { throw "Data/law_catalog.json must contain exactly 27 documents." }
+          Write-Host "Validated $($files.Count) full-title Arbat documents and $total article/rule entries."
           $rules = Get-Content Data/rules_docs.json -Raw | ConvertFrom-Json
           $pgo = $rules | Where-Object { $_.id -eq "11" }
           if ($null -eq $pgo -or $pgo.count -ne 118) { throw "PGO source metadata missing or changed." }
